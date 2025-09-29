@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: rangkai-edu-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - rangkai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Service
+  backend:
+    build: .
+    container_name: rangkai-edu-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SSLMODE: disable
+    ports:
+      - "8080:8080"
+    networks:
+      - rangkai-network
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend Service
+  frontend:
+    build: ../frontend-app
+    container_name: rangkai-edu-frontend
+    restart: unless-stopped
+    environment:
+      VITE_BACKEND_URL: http://backend:8080/api
+      VITE_APP_ENV: development
+    ports:
+      - "3000:80"
+    networks:
+      - rangkai-network
+    depends_on:
+      - backend
+    volumes:
+      - ../frontend-app:/app
+      # For development, we can mount the source code to allow hot reloading
+      # In production, we would use the built assets directly
+
+# Volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+
+# Networks for service communication
+networks:
+  rangkai-network:
+    driver: bridge

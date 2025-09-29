@@ -1,0 +1,55 @@
+# Build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+bin/
+*.o
+*.a
+*.so
+obj/
+_backend-app
+
+# Docker build context
+Dockerfile
+.dockerignore
+
+# Git directory
+.git/
+.gitignore
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+
+# Test coverage files
+coverage.*
+coverage/
+cover.out
+
+# Documentation files (except those needed in container)
+docs/
+!docs/README.md
+
+# Task list files
+task_list/
+
+# Examples
+examples/
+
+# README files (except main)
+README.md
+*/README.md
+!README.md
+
+# Environment files (these should be mounted or passed as secrets)
+.env
+config/.env
