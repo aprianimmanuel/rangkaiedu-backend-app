@@ -1,3 +1,5 @@
+\c rangkaiedu_test
+
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- For gen_random_uuid()
 
