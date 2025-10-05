@@ -18,6 +18,15 @@ func main() {
 	// Setup auth routes
 	routes.SetupAuthRoutes(r)
 
+	// Setup class routes
+	routes.SetupClassRoutes(r)
+
+	// Setup subject routes
+	routes.SetupSubjectRoutes(r)
+
+	// Setup material routes
+	routes.SetupMaterialRoutes(r)
+
 	// Run the server
 	r.Run(":8080")
 }

@@ -24,6 +24,18 @@ type Config struct {
 	TWILIOAccountSID   string
 	TWILIOAuthToken    string
 	TWILIOSenderPhone  string
+	// Storage configuration
+	StorageProvider      string
+	// OSS configuration
+	OSSBucketName        string
+	OSSAccessKeyID       string
+	OSSAccessKeySecret   string
+	OSSRegion            string
+	OSSEndpoint          string
+	// GCS configuration (deprecated)
+	GCSBucketName             string
+	GCSServiceAccountKeyPath  string
+	GCSProjectID              string
 }
 
 // Load loads the configuration from environment variables.
@@ -48,6 +60,18 @@ func Load() *Config {
 		TWILIOAccountSID:   getEnv("TWILIO_ACCOUNT_SID", ""),
 		TWILIOAuthToken:    getEnv("TWILIO_AUTH_TOKEN", ""),
 		TWILIOSenderPhone:  getEnv("TWILIO_SENDER_PHONE", ""),
+		// Storage configuration
+		StorageProvider:      getEnv("STORAGE_PROVIDER", "local"),
+		// OSS configuration
+		OSSBucketName:        getEnv("OSS_BUCKET_NAME", ""),
+		OSSAccessKeyID:       getEnv("OSS_ACCESS_KEY_ID", ""),
+		OSSAccessKeySecret:   getEnv("OSS_ACCESS_KEY_SECRET", ""),
+		OSSRegion:            getEnv("OSS_REGION", ""),
+		OSSEndpoint:          getEnv("OSS_ENDPOINT", ""),
+		// GCS configuration (deprecated)
+		GCSBucketName:            getEnv("GCS_BUCKET_NAME", ""),
+		GCSServiceAccountKeyPath: getEnv("GCS_SERVICE_ACCOUNT_KEY_PATH", ""),
+		GCSProjectID:             getEnv("GCS_PROJECT_ID", ""),
 	}
 
 	// Validate required fields
@@ -80,6 +104,18 @@ func LoadTest() *Config {
 		TWILIOAccountSID:   getEnv("TWILIO_ACCOUNT_SID", ""),
 		TWILIOAuthToken:    getEnv("TWILIO_AUTH_TOKEN", ""),
 		TWILIOSenderPhone:  getEnv("TWILIO_SENDER_PHONE", ""),
+		// Storage configuration
+		StorageProvider:      getEnv("STORAGE_PROVIDER", "local"),
+		// OSS configuration
+		OSSBucketName:        getEnv("OSS_BUCKET_NAME", ""),
+		OSSAccessKeyID:       getEnv("OSS_ACCESS_KEY_ID", ""),
+		OSSAccessKeySecret:   getEnv("OSS_ACCESS_KEY_SECRET", ""),
+		OSSRegion:            getEnv("OSS_REGION", ""),
+		OSSEndpoint:          getEnv("OSS_ENDPOINT", ""),
+		// GCS configuration (deprecated)
+		GCSBucketName:            getEnv("GCS_BUCKET_NAME", ""),
+		GCSServiceAccountKeyPath: getEnv("GCS_SERVICE_ACCOUNT_KEY_PATH", ""),
+		GCSProjectID:             getEnv("GCS_PROJECT_ID", ""),
 	}
 
 	// Validate required fields
