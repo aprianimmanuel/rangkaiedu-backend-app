@@ -1,6 +1,6 @@
 # Rangkai Edu Backend
 
-This is the backend service for the Rangkai Edu application, built with Go. This README provides comprehensive instructions for setting up the development environment, including Docker/Docker Compose usage, database configuration, migration, and information about our Git branching strategy and CI/CD pipeline.
+This is the backend service for the Rangkai Edu application, built with Go. This README provides comprehensive instructions for setting up the development environment, including Docker/Docker Compose usage, database configuration, migration, cloud storage setup (Alibaba Cloud OSS), and information about our Git branching strategy and CI/CD pipeline.
 
 ## Table of Contents
 
@@ -35,6 +35,9 @@ This is the backend service for the Rangkai Edu application, built with Go. This
   - [GitHub Actions Workflows](#github-actions-workflows)
   - [Trigger Events](#trigger-events)
   - [Deployment Process](#deployment-process)
+- [Cloud Storage](#cloud-storage)
+  - [Alibaba Cloud OSS Setup](#alibaba-cloud-oss-setup)
+  - [Local Storage](#local-storage)
 
 ## Prerequisites
 
@@ -157,6 +160,12 @@ Configuration parameters:
 - `DB_USER` - Database username (required)
 - `DB_PASSWORD` - Database password (default: empty)
 - `DB_SSLMODE` - SSL mode for database connection (default: disable)
+- `STORAGE_PROVIDER` - Storage provider to use (`local` or `oss`) (default: local)
+- `OSS_BUCKET_NAME` - Name of the OSS bucket (required for OSS)
+- `OSS_ACCESS_KEY_ID` - Access key ID for OSS access (required for OSS)
+- `OSS_ACCESS_KEY_SECRET` - Access key secret for OSS access (required for OSS)
+- `OSS_REGION` - Alibaba Cloud region (required for OSS)
+- `OSS_ENDPOINT` - OSS endpoint URL (required for OSS)
 
 ## Running Migrations
 
@@ -256,13 +265,18 @@ Before you begin, ensure you have the following installed:
    ```
    Edit the `.env` file with your actual database credentials.
 
-3. **Option 1: Run with Docker Compose (Recommended for new developers)**:
+3. **Update Go dependencies** (if needed):
+   ```bash
+   go mod tidy
+   ```
+
+4. **Option 1: Run with Docker Compose (Recommended for new developers)**:
    ```bash
    docker-compose up --build
    ```
    This will start the backend service, PostgreSQL database, and frontend service.
 
-4. **Option 2: Run locally without Docker**:
+5. **Option 2: Run locally without Docker**:
    - Install PostgreSQL and create the database as described in the [Database Setup](#database-setup) section
    - Run the application:
      ```bash
@@ -384,6 +398,15 @@ The application uses environment variables for configuration. These can be set i
    DB_USER=postgres
    DB_PASSWORD=your_password
    DB_SSLMODE=disable
+   
+   # Storage Configuration
+   STORAGE_PROVIDER=local
+   # For Alibaba Cloud OSS:
+   # OSS_BUCKET_NAME=your-bucket-name
+   # OSS_ACCESS_KEY_ID=your-access-key-id
+   # OSS_ACCESS_KEY_SECRET=your-access-key-secret
+   # OSS_REGION=ap-southeast-1
+   # OSS_ENDPOINT=https://oss-ap-southeast-1.aliyuncs.com
    ```
 
 2. **Docker Compose environment variables**:
@@ -403,6 +426,27 @@ go run main.go
 ```
 
 The server will start on port 8080 by default.
+
+### Running Tests
+
+To run the tests:
+
+```bash
+go test ./...
+```
+
+To run tests with coverage:
+
+```bash
+go test -cover ./...
+```
+
+To run tests with coverage and generate an HTML report:
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
 
 ### Docker Development Environment
 
@@ -626,3 +670,42 @@ The deployment process includes:
 2. Running database migrations if needed
 3. Performing health checks to ensure services are running properly
 4. Notifying the team of deployment status
+
+## Cloud Storage
+
+The application supports multiple storage providers for teaching materials:
+- Local file system storage (default for development)
+- Alibaba Cloud OSS (recommended for production)
+
+### Alibaba Cloud OSS Setup
+
+To use Alibaba Cloud OSS for storing teaching materials:
+
+1. **Set up infrastructure using Terraform**:
+   Follow the instructions in `terraform/README.md` to provision an OSS bucket and RAM user.
+
+2. **Configure environment variables**:
+   Update your `.env` file with the OSS configuration:
+   ```env
+   STORAGE_PROVIDER=oss
+   OSS_BUCKET_NAME=your-bucket-name
+   OSS_ACCESS_KEY_ID=your-access-key-id
+   OSS_ACCESS_KEY_SECRET=your-access-key-secret
+   OSS_REGION=ap-southeast-1
+   OSS_ENDPOINT=https://oss-ap-southeast-1.aliyuncs.com
+   ```
+
+3. **Run the application**:
+   Start the application using Docker Compose or run it locally.
+
+### Local Storage
+
+For development purposes, you can use local file system storage:
+
+1. **Configure environment variables**:
+   ```env
+   STORAGE_PROVIDER=local
+   ```
+
+2. **Run the application**:
+   Files will be stored in the `./uploads` directory.

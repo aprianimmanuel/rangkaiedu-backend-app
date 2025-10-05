@@ -42,3 +42,11 @@ out/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Backend specific
+backend-app
+terraform/
+testOutput/
+utils/file/
+utils/storage/
+task_list/material_controller.go
