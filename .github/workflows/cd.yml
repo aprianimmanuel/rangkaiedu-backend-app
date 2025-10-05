@@ -1,0 +1,124 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [ develop, staging, main ]
+
+env:
+  # Backend Docker image configuration
+  BACKEND_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rangkai-edu-backend
+  # Frontend Docker image configuration
+  FRONTEND_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rangkai-edu-frontend
+
+jobs:
+  # Deploy to Staging Environment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    # Only run on successful CI workflow on develop branch
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop'
+    environment:
+      name: staging
+      url: https://staging.rangkaiedu.com
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Deploy to staging environment
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Backend image: ${{ env.BACKEND_IMAGE_NAME }}:develop"
+          echo "Frontend image: ${{ env.FRONTEND_IMAGE_NAME }}:develop"
+          echo "This would typically involve:"
+          echo "1. Deploying Docker images to staging infrastructure"
+          echo "2. Running database migrations if needed"
+          echo "3. Performing health checks"
+          echo "4. Notifying team of deployment status"
+        # In a real implementation, this would use your specific deployment method
+        # For example, deploying to Kubernetes, Docker Swarm, or cloud provider
+        
+      # Health check
+      - name: Perform health check
+        run: |
+          echo "Performing health checks on staging environment..."
+          echo "This would typically check:"
+          echo "1. Application endpoints are responding"
+          echo "2. Database connections are working"
+          echo "3. All services are running properly"
+          
+      # Notify team of deployment
+      - name: Notify deployment
+        run: |
+          echo "Notifying team of successful staging deployment..."
+          echo "This would typically send notifications to:"
+          echo "1. Slack or Microsoft Teams"
+          echo "2. Email distribution lists"
+          echo "3. Project management tools"
+
+  # Deploy to Production Environment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    # Only run on successful CI workflow on main branch
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    environment:
+      name: production
+      url: https://rangkaiedu.com
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Deploy to production environment
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          echo "Backend image: ${{ env.BACKEND_IMAGE_NAME }}:latest"
+          echo "Frontend image: ${{ env.FRONTEND_IMAGE_NAME }}:latest"
+          echo "This would typically involve:"
+          echo "1. Deploying Docker images to production infrastructure"
+          echo "2. Running database migrations if needed"
+          echo "3. Performing health checks"
+          echo "4. Notifying team of deployment status"
+        # In a real implementation, this would use your specific deployment method
+        # For example, deploying to Kubernetes, Docker Swarm, or cloud provider
+        
+      # Health check
+      - name: Perform health check
+        run: |
+          echo "Performing health checks on production environment..."
+          echo "This would typically check:"
+          echo "1. Application endpoints are responding"
+          echo "2. Database connections are working"
+          echo "3. All services are running properly"
+          
+      # Notify team of deployment
+      - name: Notify deployment
+        run: |
+          echo "Notifying team of successful production deployment..."
+          echo "This would typically send notifications to:"
+          echo "1. Slack or Microsoft Teams"
+          echo "2. Email distribution lists"
+          echo "3. Project management tools"
+          echo "4. Customer support systems"

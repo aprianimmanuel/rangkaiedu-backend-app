@@ -1,24 +1,264 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, staging, develop ]
+    branches: [ develop, staging, main ]
   pull_request:
-    branches: [ main, staging, develop ]
+    branches: [ develop, staging, main ]
+
+env:
+  # Backend Docker image configuration
+  BACKEND_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rangkai-edu-backend
+  # Frontend Docker image configuration
+  FRONTEND_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rangkai-edu-frontend
 
 jobs:
-  build:
+  # Backend CI Pipeline
+  backend-ci:
+    name: Backend CI
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: 1.19
+      # Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
 
-    - name: Build
-      run: go build -v ./...
+      # Install dependencies
+      - name: Install dependencies
+        run: go mod download
 
-    - name: Test
-      run: go test -v ./...
+      # Code quality checks
+      - name: Run linters
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run --timeout=5m
+
+      # Security scanning
+      - name: Run security scan
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
+      # Run unit tests
+      - name: Run unit tests
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          
+      # Upload coverage report
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: backend
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      # Build backend binary
+      - name: Build backend
+        run: go build -o backend-app .
+
+      # Build Docker image
+      - name: Build backend Docker image
+        run: docker build -t ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} .
+
+      # Scan Docker image for vulnerabilities
+      - name: Scan backend Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+        env:
+          TRIVY_SKIP_DB_UPDATE: true
+          TRIVY_SKIP_JAVA_DB_UPDATE: true
+
+      # Upload Trivy scan results
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Frontend CI Pipeline
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Node.js environment
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ../frontend-app/package-lock.json
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ../frontend-app
+
+      # Code quality checks
+      - name: Run linters
+        run: npm run lint
+        working-directory: ../frontend-app
+
+      # Security scanning for dependencies
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        working-directory: ../frontend-app
+
+      # Build frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: ../frontend-app
+        env:
+          VITE_BACKEND_URL: /api
+          VITE_APP_ENV: production
+
+      # Build Docker image
+      - name: Build frontend Docker image
+        run: docker build -t ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }} .
+        working-directory: ../frontend-app
+
+      # Scan Docker image for vulnerabilities
+      - name: Scan frontend Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+        env:
+          TRIVY_SKIP_DB_UPDATE: true
+          TRIVY_SKIP_JAVA_DB_UPDATE: true
+
+      # Upload Trivy scan results
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Push Docker Images to GHCR
+  push-images:
+    name: Push Docker Images
+    needs: [backend-ci, frontend-ci]
+    runs-on: ubuntu-latest
+    # Only run on push to develop, staging, or main branches
+    if: github.event_name == 'push' && contains(fromJson('["develop", "staging", "main"]'), github.ref_name)
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Login to GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Extract metadata for backend image
+      - name: Extract backend metadata
+        id: backend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push backend image
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.backend-meta.outputs.tags }}
+          labels: ${{ steps.backend-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Extract metadata for frontend image
+      - name: Extract frontend metadata
+        id: frontend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push frontend image
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ../frontend-app
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to Staging Environment
+  deploy-staging:
+    name: Deploy to Staging
+    needs: push-images
+    runs-on: ubuntu-latest
+    # Only run on push to develop branch
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.rangkaiedu.com
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Deploy to staging environment
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "This would typically involve:"
+          echo "1. Deploying Docker images to staging infrastructure"
+          echo "2. Running database migrations if needed"
+          echo "3. Performing health checks"
+          echo "4. Notifying team of deployment status"
+        # In a real implementation, this would use your specific deployment method
+        # For example, deploying to Kubernetes, Docker Swarm, or cloud provider
+        
+      # Health check
+      - name: Perform health check
+        run: |
+          echo "Performing health checks on staging environment..."
+          echo "This would typically check:"
+          echo "1. Application endpoints are responding"
+          echo "2. Database connections are working"
+          echo "3. All services are running properly"
+          
+      # Notify team of deployment
+      - name: Notify deployment
+        run: |
+          echo "Notifying team of successful staging deployment..."
+          echo "This would typically send notifications to:"
+          echo "1. Slack or Microsoft Teams"
+          echo "2. Email distribution lists"
+          echo "3. Project management tools"

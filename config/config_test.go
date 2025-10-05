@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestLoadConfig(t *testing.T) {
+func TestLoad(t *testing.T) {
 	// Set some test environment variables
 	os.Setenv("DB_HOST", "test_host")
 	os.Setenv("DB_PORT", "5433")
@@ -13,36 +13,37 @@ func TestLoadConfig(t *testing.T) {
 	os.Setenv("DB_USER", "test_user")
 	os.Setenv("DB_PASSWORD", "test_password")
 	os.Setenv("DB_SSLMODE", "require")
+	os.Setenv("JWT_SECRET", "test")
 
 	// Load config
-	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
+	config := Load()
 
 	// Check values
-	if config.Host != "test_host" {
-		t.Errorf("Expected host 'test_host', got '%s'", config.Host)
+	if config.DBHost != "test_host" {
+		t.Errorf("Expected DBHost 'test_host', got '%s'", config.DBHost)
 	}
-	if config.Port != "5433" {
-		t.Errorf("Expected port '5433', got '%s'", config.Port)
+	if config.DBPort != "5433" {
+		t.Errorf("Expected DBPort '5433', got '%s'", config.DBPort)
 	}
-	if config.Database != "test_db" {
-		t.Errorf("Expected database 'test_db', got '%s'", config.Database)
+	if config.DBName != "test_db" {
+		t.Errorf("Expected DBName 'test_db', got '%s'", config.DBName)
 	}
-	if config.Username != "test_user" {
-		t.Errorf("Expected username 'test_user', got '%s'", config.Username)
+	if config.DBUser != "test_user" {
+		t.Errorf("Expected DBUser 'test_user', got '%s'", config.DBUser)
 	}
-	if config.Password != "test_password" {
-		t.Errorf("Expected password 'test_password', got '%s'", config.Password)
+	if config.DBPassword != "test_password" {
+		t.Errorf("Expected DBPassword 'test_password', got '%s'", config.DBPassword)
 	}
-	if config.SSLMode != "require" {
-		t.Errorf("Expected sslmode 'require', got '%s'", config.SSLMode)
+	if config.DBSSLMode != "require" {
+		t.Errorf("Expected DBSSLMode 'require', got '%s'", config.DBSSLMode)
+	}
+	if config.JWTSecret != "test" {
+		t.Errorf("Expected JWTSecret 'test', got '%s'", config.JWTSecret)
 	}
 
 	// Test DSN building
-	expectedDSN := "postgres://test_user:test_password@test_host:5433/test_db?sslmode=require"
-	actualDSN := config.BuildDSN()
+	expectedDSN := "host=test_host port=5433 dbname=test_db user=test_user password=test_password sslmode=require"
+	actualDSN := config.DSN()
 	if actualDSN != expectedDSN {
 		t.Errorf("Expected DSN '%s', got '%s'", expectedDSN, actualDSN)
 	}
@@ -54,55 +55,58 @@ func TestLoadConfig(t *testing.T) {
 	os.Unsetenv("DB_USER")
 	os.Unsetenv("DB_PASSWORD")
 	os.Unsetenv("DB_SSLMODE")
+	os.Unsetenv("JWT_SECRET")
 }
 
-func TestLoadConfigWithDefaults(t *testing.T) {
-	// Set only required environment variables
-	os.Setenv("DB_NAME", "test_db")
-	os.Setenv("DB_USER", "test_user")
-
-	// Load config
-	config, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
-
-	// Check default values
-	if config.Host != "localhost" {
-		t.Errorf("Expected default host 'localhost', got '%s'", config.Host)
-	}
-	if config.Port != "5432" {
-		t.Errorf("Expected default port '5432', got '%s'", config.Port)
-	}
-	if config.Database != "test_db" {
-		t.Errorf("Expected database 'test_db', got '%s'", config.Database)
-	}
-	if config.Username != "test_user" {
-		t.Errorf("Expected username 'test_user', got '%s'", config.Username)
-	}
-	if config.SSLMode != "disable" {
-		t.Errorf("Expected default sslmode 'disable', got '%s'", config.SSLMode)
-	}
-
-	// Clean up environment variables
+func TestLoadWithDefaults(t *testing.T) {
+	// Unset to use defaults
+	os.Unsetenv("DB_HOST")
+	os.Unsetenv("DB_PORT")
 	os.Unsetenv("DB_NAME")
 	os.Unsetenv("DB_USER")
+	os.Unsetenv("DB_PASSWORD")
+	os.Unsetenv("DB_SSLMODE")
+	os.Unsetenv("JWT_SECRET")
+
+	// Load config - should use defaults without panic
+	config := Load()
+
+	if config.DBHost != "localhost" {
+		t.Errorf("Expected default DBHost 'localhost', got '%s'", config.DBHost)
+	}
+	if config.DBPort != "5432" {
+		t.Errorf("Expected default DBPort '5432', got '%s'", config.DBPort)
+	}
+	if config.DBName != "rangkaiedu_dev" {
+		t.Errorf("Expected default DBName 'rangkaiedu_dev', got '%s'", config.DBName)
+	}
+	if config.DBUser != "postgres" {
+		t.Errorf("Expected default DBUser 'postgres', got '%s'", config.DBUser)
+	}
+	if config.DBPassword != "password" {
+		t.Errorf("Expected default DBPassword 'password', got '%s'", config.DBPassword)
+	}
+	if config.DBSSLMode != "disable" {
+		t.Errorf("Expected default DBSSLMode 'disable', got '%s'", config.DBSSLMode)
+	}
+	if config.JWTSecret != "default-secret-key-change-in-production" {
+		t.Errorf("Expected default JWTSecret, got '%s'", config.JWTSecret)
+	}
 }
 
-func TestLoadConfigMissingRequiredFields(t *testing.T) {
-	// Don't set required environment variables
-	_, err := LoadConfig()
-	if err == nil {
-		t.Error("Expected error for missing database name, but got none")
-	}
-
-	// Set database name but not username
-	os.Setenv("DB_NAME", "test_db")
-	_, err = LoadConfig()
-	if err == nil {
-		t.Error("Expected error for missing username, but got none")
-	}
-
-	// Clean up environment variables
+func TestLoadMissingRequiredFields(t *testing.T) {
+	// Unset required vars to trigger fatal
+	os.Unsetenv("DB_HOST")
+	os.Unsetenv("DB_PORT")
 	os.Unsetenv("DB_NAME")
+	os.Unsetenv("DB_USER")
+
+	// Expect panic from log.Fatal
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic for missing required database configuration")
+		}
+	}()
+
+	Load()
 }

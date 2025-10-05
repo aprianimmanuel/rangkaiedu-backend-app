@@ -1,0 +1,60 @@
+name: Security Scanning
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Go environment for backend scanning
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: go mod download
+
+      # Run Go security scanner
+      - name: Run Go security scan
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
+      # Set up Node.js environment for frontend scanning
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ../frontend-app/package-lock.json
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ../frontend-app
+
+      # Run npm audit
+      - name: Run npm audit
+        run: npm audit
+        working-directory: ../frontend-app
+
+      # Scan Docker images if they exist
+      - name: Scan Docker images
+        run: |
+          echo "Scanning Docker images for vulnerabilities..."
+          echo "This would typically involve:"
+          echo "1. Pulling latest images from registry"
+          echo "2. Running security scanners like Trivy"
+          echo "3. Reporting findings to security team"
+        # In a real implementation, this would pull and scan actual images

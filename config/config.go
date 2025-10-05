@@ -10,12 +10,20 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	DBHost     string
-	DBPort     string
-	DBName     string
-	DBUser     string
-	DBPassword string
-	DBSSLMode  string // "disable" for local dev, "require" for production
+	DBHost         string
+	DBPort         string
+	DBName         string
+	DBUser         string
+	DBPassword     string
+	DBSSLMode      string // "disable" for local dev, "require" for production
+	JWTSecret      string
+	SMTPHost       string
+	SMTPPort       string
+	SMTPUser       string
+	SMTPPass       string
+	TWILIOAccountSID   string
+	TWILIOAuthToken    string
+	TWILIOSenderPhone  string
 }
 
 // Load loads the configuration from environment variables.
@@ -26,17 +34,57 @@ func Load() *Config {
 	}
 
 	cfg := &Config{
-		DBHost:    getEnv("DB_HOST", "localhost"),
-		DBPort:    getEnv("DB_PORT", "5432"),
-		DBName:    getEnv("DB_NAME", "rangkaiedu_dev"),
-		DBUser:    getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "password"), // Change this in production
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DBHost:         getEnv("DB_HOST", "localhost"),
+		DBPort:         getEnv("DB_PORT", "5432"),
+		DBName:         getEnv("DB_NAME", "rangkaiedu_dev"),
+		DBUser:         getEnv("DB_USER", "postgres"),
+		DBPassword:     getEnv("DB_PASSWORD", "password"), // Change this in production
+		DBSSLMode:      getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:      getEnv("JWT_SECRET", "default-secret-key-change-in-production"),
+		SMTPHost:       getEnv("SMTP_HOST", ""),
+		SMTPPort:       getEnv("SMTP_PORT", "587"),
+		SMTPUser:       getEnv("SMTP_USER", ""),
+		SMTPPass:       getEnv("SMTP_PASS", ""),
+		TWILIOAccountSID:   getEnv("TWILIO_ACCOUNT_SID", ""),
+		TWILIOAuthToken:    getEnv("TWILIO_AUTH_TOKEN", ""),
+		TWILIOSenderPhone:  getEnv("TWILIO_SENDER_PHONE", ""),
 	}
 
 	// Validate required fields
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBName == "" || cfg.DBUser == "" {
 		log.Fatal("Missing required database configuration. Please set DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in .env")
+	}
+
+	return cfg
+}
+
+// LoadTest loads the configuration from environment variables for testing.
+func LoadTest() *Config {
+	// Load .env.test file if it exists
+	if err := godotenv.Load(".env.test"); err != nil {
+		log.Println("No .env.test file found")
+	}
+
+	cfg := &Config{
+		DBHost:         getEnv("DB_HOST", "localhost"),
+		DBPort:         getEnv("DB_PORT", "7110"),
+		DBName:         getEnv("DB_NAME", "rangkaiedu_test"),
+		DBUser:         getEnv("DB_USER", "rangkaiedudev1"),
+		DBPassword:     getEnv("DB_PASSWORD", "12d1q23wxm19wkc1fsdcq23"),
+		DBSSLMode:      getEnv("DB_SSLMODE", "disable"),
+		JWTSecret:      getEnv("JWT_SECRET", "test-jwt-secret-change-in-production"),
+		SMTPHost:       getEnv("SMTP_HOST", ""),
+		SMTPPort:       getEnv("SMTP_PORT", "587"),
+		SMTPUser:       getEnv("SMTP_USER", ""),
+		SMTPPass:       getEnv("SMTP_PASS", ""),
+		TWILIOAccountSID:   getEnv("TWILIO_ACCOUNT_SID", ""),
+		TWILIOAuthToken:    getEnv("TWILIO_AUTH_TOKEN", ""),
+		TWILIOSenderPhone:  getEnv("TWILIO_SENDER_PHONE", ""),
+	}
+
+	// Validate required fields
+	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBName == "" || cfg.DBUser == "" {
+		log.Fatal("Missing required database configuration. Please set DB_HOST, DB_PORT, DB_NAME, DB_USER, and DB_PASSWORD in .env.test")
 	}
 
 	return cfg
