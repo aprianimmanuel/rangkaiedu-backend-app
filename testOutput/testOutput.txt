@@ -1,0 +1,88 @@
+=== RUN   TestAuthRequired_ValidToken
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+Token issuer validated: rangkai-edu-backend
+--- PASS: TestAuthRequired_ValidToken (0.00s)
+=== RUN   TestAuthRequired_MissingToken
+--- PASS: TestAuthRequired_MissingToken (0.00s)
+=== RUN   TestAuthRequired_InvalidHeaderFormat
+--- PASS: TestAuthRequired_InvalidHeaderFormat (0.00s)
+=== RUN   TestAuthRequired_InvalidToken
+Token parsing error: invalid character '\u008a' looking for beginning of value
+--- PASS: TestAuthRequired_InvalidToken (0.00s)
+=== RUN   TestAuthRequired_ExpiredToken
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+Token parsing error: Token is expired
+--- PASS: TestAuthRequired_ExpiredToken (0.00s)
+=== RUN   TestGetStringClaim
+--- PASS: TestGetStringClaim (0.00s)
+=== RUN   TestAuthIntegration_ValidTokenFromAuthSystem
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 Attempting to connect to database with DSN: host=localhost port=5432 dbname=rangkaiedu user=rangkaiedudev1 password=12d1q23wxm19wkc1fsdcq23 sslmode=disable
+2025/10/04 21:59:59 Successfully connected to database
+2025/10/04 21:59:59 Checking for duplicate email: integration@example.com
+2025/10/04 21:59:59 Database error checking email: failed to connect to `user=rangkaiedudev1 database=rangkaiedu`: 127.0.0.1:5432 (localhost): server error: FATAL: password authentication failed for user "rangkaiedudev1" (SQLSTATE 28P01)
+[GIN] 2025/10/04 - 21:59:59 | 500 |   18.867278ms |                 | POST     "/api/auth/register"
+    integration_test.go:159: Registration failed: 500
+--- FAIL: TestAuthIntegration_ValidTokenFromAuthSystem (0.02s)
+=== RUN   TestAuthIntegration_AdminRouteAccess
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 Attempting to connect to database with DSN: host=localhost port=5432 dbname=rangkaiedu user=rangkaiedudev1 password=12d1q23wxm19wkc1fsdcq23 sslmode=disable
+2025/10/04 21:59:59 Successfully connected to database
+2025/10/04 21:59:59 Checking for duplicate email: admin@example.com
+2025/10/04 21:59:59 Database error checking email: failed to connect to `user=rangkaiedudev1 database=rangkaiedu`: 127.0.0.1:5432 (localhost): server error: FATAL: password authentication failed for user "rangkaiedudev1" (SQLSTATE 28P01)
+[GIN] 2025/10/04 - 21:59:59 | 500 |    4.079433ms |                 | POST     "/api/auth/register"
+    integration_test.go:252: Registration failed: 500
+--- FAIL: TestAuthIntegration_AdminRouteAccess (0.00s)
+=== RUN   TestAuthIntegration_ForbiddenAccess
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 Attempting to connect to database with DSN: host=localhost port=5432 dbname=rangkaiedu user=rangkaiedudev1 password=12d1q23wxm19wkc1fsdcq23 sslmode=disable
+2025/10/04 21:59:59 Successfully connected to database
+2025/10/04 21:59:59 Checking for duplicate email: student@example.com
+2025/10/04 21:59:59 Database error checking email: failed to connect to `user=rangkaiedudev1 database=rangkaiedu`: 127.0.0.1:5432 (localhost): server error: FATAL: password authentication failed for user "rangkaiedudev1" (SQLSTATE 28P01)
+[GIN] 2025/10/04 - 21:59:59 | 500 |    5.803132ms |                 | POST     "/api/auth/register"
+    integration_test.go:336: Registration failed: 500
+--- FAIL: TestAuthIntegration_ForbiddenAccess (0.01s)
+=== RUN   TestAuthIntegration_TeacherAccess
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 No .env file found
+2025/10/04 21:59:59 Attempting to connect to database with DSN: host=localhost port=5432 dbname=rangkaiedu user=rangkaiedudev1 password=12d1q23wxm19wkc1fsdcq23 sslmode=disable
+2025/10/04 21:59:59 Successfully connected to database
+2025/10/04 21:59:59 Checking for duplicate email: teacher@example.com
+2025/10/04 21:59:59 Database error checking email: failed to connect to `user=rangkaiedudev1 database=rangkaiedu`: 127.0.0.1:5432 (localhost): server error: FATAL: password authentication failed for user "rangkaiedudev1" (SQLSTATE 28P01)
+[GIN] 2025/10/04 - 21:59:59 | 500 |     4.03003ms |                 | POST     "/api/auth/register"
+    integration_test.go:420: Registration failed: 500
+--- FAIL: TestAuthIntegration_TeacherAccess (0.00s)
+=== RUN   TestAuthIntegration_InvalidToken
+Token parsing error: invalid character '\u008a' looking for beginning of value
+[GIN] 2025/10/04 - 21:59:59 | 401 |      67.204µs |                 | GET      "/api/protected/profile"
+--- PASS: TestAuthIntegration_InvalidToken (0.00s)
+=== RUN   TestAuthIntegration_MalformedToken
+[GIN] 2025/10/04 - 21:59:59 | 401 |      18.401µs |                 | GET      "/api/protected/profile"
+--- PASS: TestAuthIntegration_MalformedToken (0.00s)
+=== RUN   TestAuthIntegration_MissingToken
+[GIN] 2025/10/04 - 21:59:59 | 401 |      13.901µs |                 | GET      "/api/protected/profile"
+--- PASS: TestAuthIntegration_MissingToken (0.00s)
+=== RUN   TestRoleRequired_ValidRole
+--- PASS: TestRoleRequired_ValidRole (0.00s)
+=== RUN   TestRoleRequired_InvalidRole
+--- PASS: TestRoleRequired_InvalidRole (0.00s)
+=== RUN   TestRoleRequired_NoUserContext
+--- PASS: TestRoleRequired_NoUserContext (0.00s)
+=== RUN   TestRoleRequired_InvalidUserContext
+--- PASS: TestRoleRequired_InvalidUserContext (0.00s)
+=== RUN   TestRolesRequired_ValidRole
+--- PASS: TestRolesRequired_ValidRole (0.00s)
+=== RUN   TestRolesRequired_InvalidRole
+--- PASS: TestRolesRequired_InvalidRole (0.00s)
+=== RUN   TestRolesRequired_NoUserContext
+--- PASS: TestRolesRequired_NoUserContext (0.00s)
+=== RUN   TestRolesRequired_InvalidUserContext
+--- PASS: TestRolesRequired_InvalidUserContext (0.00s)
+FAIL
+FAIL    github.com/aprianimmanuel/backend-app/middleware        0.048s
+FAIL
