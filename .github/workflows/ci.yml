@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ develop, staging, main ]
+    branches: [ feature/*, release/*, hotfix/*, develop, staging, main ]
   pull_request:
-    branches: [ develop, staging, main ]
+    branches: [ feature/*, release/*, hotfix/*, develop, staging, main ]
 
 env:
   # Backend Docker image configuration
@@ -12,7 +12,75 @@ env:
   # Frontend Docker image configuration
   FRONTEND_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rangkai-edu-frontend
 
+# Determine branch type for notifications and reporting
+defaults:
+  run:
+    shell: bash
+
 jobs:
+  # Branch type identification
+  identify-branch-type:
+    name: Identify Branch Type
+    runs-on: ubuntu-latest
+    outputs:
+      branch-type: ${{ steps.branch-type.outputs.branch-type }}
+      branch-name: ${{ steps.branch-type.outputs.branch-name }}
+    steps:
+      - name: Identify Branch Type
+        id: branch-type
+        run: |
+          if [[ "${{ github.ref_name }}" == feature/* ]]; then
+            echo "branch-type=feature" >> $GITHUB_OUTPUT
+            echo "branch-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == release/* ]]; then
+            echo "branch-type=release" >> $GITHUB_OUTPUT
+            echo "branch-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == hotfix/* ]]; then
+            echo "branch-type=hotfix" >> $GITHUB_OUTPUT
+            echo "branch-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == develop ]]; then
+            echo "branch-type=develop" >> $GITHUB_OUTPUT
+            echo "branch-name=develop" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == staging ]]; then
+            echo "branch-type=staging" >> $GITHUB_OUTPUT
+            echo "branch-name=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_name }}" == main ]]; then
+            echo "branch-type=main" >> $GITHUB_OUTPUT
+            echo "branch-name=main" >> $GITHUB_OUTPUT
+          else
+            echo "branch-type=unknown" >> $GITHUB_OUTPUT
+            echo "branch-name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+  # Notification job for branch status
+  notify-branch-status:
+    name: Notify Branch Status
+    needs: identify-branch-type
+    runs-on: ubuntu-latest
+    if: always() && (github.event_name == 'push' || github.event_name == 'pull_request')
+    steps:
+      - name: Notify branch status
+        run: |
+          echo "🚀 CI/CD Pipeline triggered for branch: ${{ needs.identify-branch-type.outputs.branch-name }}"
+          echo "📋 Branch type: ${{ needs.identify-branch-type.outputs.branch-type }}"
+          
+          # Branch-specific messaging
+          if [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "feature" ]]; then
+            echo "🔧 Feature branch detected - Running CI validation only (no deployment)"
+          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "release" ]]; then
+            echo "🚀 Release branch detected - Running full pipeline with deployment"
+          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "hotfix" ]]; then
+            echo "🔥 Hotfix branch detected - Running full pipeline with deployment"
+          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "develop" ]]; then
+            echo "🔨 Develop branch detected - Running full pipeline with deployment"
+          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "staging" ]]; then
+            echo "🎭 Staging branch detected - Running full pipeline with deployment"
+          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "main" ]]; then
+            echo "🏠 Main branch detected - Running full pipeline with deployment"
+          else
+            echo "❓ Unknown branch type detected"
+          fi
+
   # Backend CI Pipeline
   backend-ci:
     name: Backend CI
@@ -151,10 +219,10 @@ jobs:
   # Push Docker Images to GHCR
   push-images:
     name: Push Docker Images
-    needs: [backend-ci, frontend-ci]
+    needs: [backend-ci, frontend-ci, identify-branch-type]
     runs-on: ubuntu-latest
-    # Only run on push to develop, staging, or main branches
-    if: github.event_name == 'push' && contains(fromJson('["develop", "staging", "main"]'), github.ref_name)
+    # Only run on push to develop, staging, main, release/*, or hotfix/* branches (exclude feature branches)
+    if: github.event_name == 'push' && (contains(fromJson('["develop", "staging", "main"]'), github.ref_name) || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'hotfix/')) && !startsWith(github.ref_name, 'feature/')
     steps:
       # Checkout code
       - name: Checkout code
@@ -223,8 +291,8 @@ jobs:
     name: Deploy to Staging
     needs: push-images
     runs-on: ubuntu-latest
-    # Only run on push to develop branch
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    # Only run on push to develop, release/*, or hotfix/* branches (exclude feature branches)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'hotfix/')) && !startsWith(github.ref_name, 'feature/')
     environment:
       name: staging
       url: https://staging.rangkaiedu.com
@@ -237,6 +305,8 @@ jobs:
       - name: Deploy to staging
         run: |
           echo "Deploying to staging environment..."
+          echo "Branch: ${{ needs.identify-branch-type.outputs.branch-name }}"
+          echo "Branch type: ${{ needs.identify-branch-type.outputs.branch-type }}"
           echo "This would typically involve:"
           echo "1. Deploying Docker images to staging infrastructure"
           echo "2. Running database migrations if needed"
@@ -258,6 +328,8 @@ jobs:
       - name: Notify deployment
         run: |
           echo "Notifying team of successful staging deployment..."
+          echo "Branch: ${{ needs.identify-branch-type.outputs.branch-name }}"
+          echo "Branch type: ${{ needs.identify-branch-type.outputs.branch-type }}"
           echo "This would typically send notifications to:"
           echo "1. Slack or Microsoft Teams"
           echo "2. Email distribution lists"
