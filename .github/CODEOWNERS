@@ -1,0 +1,35 @@
+# Code Owners for Rangkai Edu Backend
+
+# Global owners
+* @aprianimmanuel
+
+# Documentation
+docs/ @aprianimmanuel
+
+# Core application code
+main.go @aprianimmanuel
+config/ @aprianimmanuel
+controllers/ @aprianimmanuel
+models/ @aprianimmanuel
+routes/ @aprianimmanuel
+middleware/ @aprianimmanuel
+utils/ @aprianimmanuel
+pkg/ @aprianimmanuel
+
+# Database
+init-scripts/ @aprianimmanuel
+migrations/ @aprianimmanuel
+
+# Docker configuration
+Dockerfile @aprianimmanuel
+docker-compose.yml @aprianimmanuel
+.dockerignore @aprianimmanuel
+
+# GitHub Actions workflows
+.github/workflows/ @aprianimmanuel
+
+# Task lists
+task_list/ @aprianimmanuel
+
+# Examples
+examples/ @aprianimmanuel

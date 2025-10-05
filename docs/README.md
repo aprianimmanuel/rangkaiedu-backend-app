@@ -12,6 +12,7 @@ This directory contains all the documentation for the Rangkai Edu project's Inte
 6. [Code Quality](code-quality.md) - Code quality tools configuration
 7. [Integration Testing](integration-testing.md) - Integration testing procedures
 8. [Phase 3 Summary](phase3-summary.md) - Summary of deliverables
+9. [Authorization](authorization.md) - Role-based access control and JWT implementation
 
 ## Overview
 

@@ -157,128 +157,194 @@ graph TD
 ### 4.1 GitHub Actions
 Primary CI/CD platform for automated workflows:
 
-#### Backend Workflow (`.github/workflows/backend.yml`)
+#### CI Workflow (`.github/workflows/ci.yml`)
 ```yaml
-name: Backend CI/CD
+name: CI/CD Pipeline
+
 on:
   push:
     branches: [ develop, staging, main ]
   pull_request:
-    branches: [ develop ]
+    branches: [ develop, staging, main ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.19'
-    - name: Install dependencies
-      run: go mod download
-    - name: Run linters
-      run: |
-        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-        golangci-lint run
-    - name: Run tests
-      run: go test -v ./...
+  backend-ci:
+    # Backend continuous integration pipeline
+    # - Code quality checks
+    # - Security scanning
+    # - Unit testing
+    # - Docker image building
   
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.19'
-    - name: Build
-      run: go build -o backend-app .
-    - name: Docker build
-      run: docker build -t backend-app .
+  frontend-ci:
+    # Frontend continuous integration pipeline
+    # - Code quality checks
+    # - Security scanning
+    # - Unit testing
+    # - Docker image building
+  
+  push-images:
+    # Push Docker images to GHCR
+    # - Only on push to develop, staging, or main branches
+    # - Tag images appropriately for each environment
+  
+  deploy-staging:
+    # Deploy to staging environment
+    # - Only on push to develop branch
+    # - Environment-specific configurations
 ```
 
-#### Frontend Workflow (`.github/workflows/frontend.yml`)
+#### CD Workflow (`.github/workflows/cd.yml`)
 ```yaml
-name: Frontend CI/CD
+name: CD Pipeline
+
 on:
-  push:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
     branches: [ develop, staging, main ]
-  pull_request:
-    branches: [ develop ]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-        cache-dependency-path: ../frontend-app/package-lock.json
-    - name: Install dependencies
-      run: npm ci
-      working-directory: ../frontend-app
-    - name: Run linters
-      run: npm run lint
-      working-directory: ../frontend-app
-    - name: Run tests
-      run: npm run test
-      working-directory: ../frontend-app
+  deploy-staging:
+    # Deploy to staging environment
+    # - Only on successful CI workflow on develop branch
+    # - Environment-specific configurations
   
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18.x'
-        cache: 'npm'
-        cache-dependency-path: ../frontend-app/package-lock.json
-    - name: Install dependencies
-      run: npm ci
-      working-directory: ../frontend-app
-    - name: Build
-      run: npm run build
-      working-directory: ../frontend-app
+  deploy-production:
+    # Deploy to production environment
+    # - Only on successful CI workflow on main branch
+    # - Environment-specific configurations
+```
+
+#### Security Workflow (`.github/workflows/security.yml`)
+```yaml
+name: Security Scanning
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    # Scheduled security scanning
+    # - Go security scanning with gosec
+    # - npm audit for frontend dependencies
+    # - Docker image vulnerability scanning
 ```
 
 ### 4.2 Docker Configuration
 
 #### Backend Dockerfile
 ```dockerfile
-FROM golang:1.19-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+# Multi-stage Dockerfile for Go backend application
 
+# Build stage
+FROM golang:1.24.7-alpine AS builder
+
+# Install git and other dependencies needed for building
+RUN apk add --no-cache git gcc musl-dev
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+
+# Download dependencies (cached if go.mod and go.sum unchanged)
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o backend-app .
+
+# Final stage
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/main .
-CMD ["./main"]
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates wget
+
+# Create a non-root user
+RUN adduser -D -s /bin/sh appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder /app/backend-app .
+
+# Copy config files if they exist
+COPY --from=builder /app/config/.env.example ./config/.env.example
+
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
+
+# Command to run the application
+ENTRYPOINT ["./backend-app"]
 ```
 
 #### Frontend Dockerfile
 ```dockerfile
-FROM node:18-alpine AS builder
+# Multi-stage Dockerfile for React/Vite frontend application
+
+# Build stage
+FROM node:20-alpine AS builder
+
+# Set working directory
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-RUN npm ci
+
+# Install dependencies with caching
+RUN npm ci --prefer-offline --no-audit --no-fund
+
+# Copy application code
 COPY . .
+
+# Build arguments for environment variables (Vite variables must be available at build time)
+ARG VITE_BACKEND_URL=https://api.rangkaiedu.com/api
+ARG VITE_APP_ENV=production
+
+# Set environment variables for build
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+ENV VITE_APP_ENV=$VITE_APP_ENV
+
+# Create production build
 RUN npm run build
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Production stage
+FROM nginx:alpine AS production
+
+# Set working directory
+WORKDIR /usr/share/nginx/html
+
+# Remove default nginx static assets
+RUN rm -rf ./*
+
+# Copy built assets from builder stage
+COPY --from=builder /app/dist .
+
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
 EXPOSE 80
+
+# Start nginx server
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
@@ -408,3 +474,27 @@ VITE_API_URL=https://api.rangkaiedu.com
 6. Set up security scanning in the CI pipeline
 7. Configure automated testing in all environments
 8. Establish performance benchmarks for build and deployment times
+
+## 11. Implementation Status
+
+### 11.1 Completed
+- ✅ GitHub Actions CI/CD pipeline implementation
+- ✅ Automated testing for both frontend and backend
+- ✅ Docker image building and pushing to GHCR
+- ✅ Security scanning and quality checks
+- ✅ Environment-specific configurations
+- ✅ Deployment workflows for staging and production
+
+### 11.2 Workflow Files
+- `.github/workflows/ci.yml` - Continuous Integration pipeline
+- `.github/workflows/cd.yml` - Continuous Deployment pipeline
+- `.github/workflows/security.yml` - Scheduled security scanning
+
+### 11.3 Features Implemented
+- Parallel execution of backend and frontend CI pipelines
+- Docker image building with Buildx for better caching
+- Automated security scanning with Trivy
+- Code coverage reporting with Codecov
+- Environment-specific deployments
+- Scheduled security scanning
+- Proper error handling and notifications

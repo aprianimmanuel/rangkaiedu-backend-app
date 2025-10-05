@@ -181,7 +181,7 @@ CREATE TRIGGER update_auth_tokens_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create otp_verifications table
-CREATE TABLE otp_verifications (
+CREATE TABLE IF NOT EXISTS otp_verifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone VARCHAR(20) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student', 'parent')),

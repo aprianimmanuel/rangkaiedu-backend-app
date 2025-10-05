@@ -1,10 +1,17 @@
 # Rangkai Edu Backend
 
-This is the backend service for the Rangkai Edu application, built with Go. This README provides instructions for setting up the development environment, including database configuration and migration.
+This is the backend service for the Rangkai Edu application, built with Go. This README provides comprehensive instructions for setting up the development environment, including Docker/Docker Compose usage, database configuration, migration, cloud storage setup (Alibaba Cloud OSS), and information about our Git branching strategy and CI/CD pipeline.
 
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
+- [Environment Setup for New Developers](#environment-setup-for-new-developers)
+  - [Docker and Docker Compose Installation](#docker-and-docker-compose-installation)
+- [Docker/Docker Compose Usage](#dockerdocker-compose-usage)
+  - [Backend Docker Image](#backend-docker-image)
+  - [Frontend Docker Image](#frontend-docker-image)
+  - [Docker Compose for Local Development](#docker-compose-for-local-development)
+  - [Environment Variable Configuration](#environment-variable-configuration)
 - [Database Setup](#database-setup)
   - [Installing PostgreSQL](#installing-postgresql)
   - [Creating the Database](#creating-the-database)
@@ -17,15 +24,29 @@ This is the backend service for the Rangkai Edu application, built with Go. This
   - [Connection Implementation](#connection-implementation)
   - [Connection Pool](#connection-pool)
 - [Development](#development)
+  - [Running the Application Locally](#running-the-application-locally)
   - [Docker Development Environment](#docker-development-environment)
 - [Git Branching Strategy](#git-branching-strategy)
+  - [Branch Structure](#branch-structure)
+  - [Workflow Diagrams](#workflow-diagrams)
+  - [Workflows](#workflows)
+  - [Merge Strategies and Code Review Process](#merge-strategies-and-code-review-process)
+- [CI/CD Pipeline](#cicd-pipeline)
+  - [GitHub Actions Workflows](#github-actions-workflows)
+  - [Trigger Events](#trigger-events)
+  - [Deployment Process](#deployment-process)
+- [Cloud Storage](#cloud-storage)
+  - [Alibaba Cloud OSS Setup](#alibaba-cloud-oss-setup)
+  - [Local Storage](#local-storage)
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
-- Go 1.13 or higher
-- PostgreSQL 12 or higher
+- Go 1.24 or higher
+- PostgreSQL 15 or higher
 - Git
+- Docker 20.10+ (for containerized development)
+- Docker Compose v2+ (for containerized development)
 
 ## Database Setup
 
@@ -139,6 +160,12 @@ Configuration parameters:
 - `DB_USER` - Database username (required)
 - `DB_PASSWORD` - Database password (default: empty)
 - `DB_SSLMODE` - SSL mode for database connection (default: disable)
+- `STORAGE_PROVIDER` - Storage provider to use (`local` or `oss`) (default: local)
+- `OSS_BUCKET_NAME` - Name of the OSS bucket (required for OSS)
+- `OSS_ACCESS_KEY_ID` - Access key ID for OSS access (required for OSS)
+- `OSS_ACCESS_KEY_SECRET` - Access key secret for OSS access (required for OSS)
+- `OSS_REGION` - Alibaba Cloud region (required for OSS)
+- `OSS_ENDPOINT` - OSS endpoint URL (required for OSS)
 
 ## Running Migrations
 
@@ -212,24 +239,118 @@ var name string
 err = pool.QueryRow(context.Background(), "SELECT name FROM users WHERE id = $1", 1).Scan(&name)
 ```
 
-## Development
+## Environment Setup for New Developers
 
-To run the application:
-```bash
-go run main.go
-```
-
-The server will start on port 8080 by default.
-
-### Docker Development Environment
-
-For easier development and consistent environments across different machines, you can use Docker and Docker Compose to run the application locally.
-
-#### Prerequisites
+### Prerequisites
 
 Before you begin, ensure you have the following installed:
-- Docker
-- Docker Compose
+- Go 1.24 or higher
+- PostgreSQL 15 or higher
+- Git
+- Docker 20.10+ (for containerized development)
+- Docker Compose v2+ (for containerized development)
+
+### Step-by-Step Setup Instructions
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd rangkaiedu/backend
+   ```
+
+2. **Set up environment variables**:
+   Copy the example environment file and modify it with your settings:
+   ```bash
+   cp config/.env.example .env
+   ```
+   Edit the `.env` file with your actual database credentials.
+
+3. **Update Go dependencies** (if needed):
+   ```bash
+   go mod tidy
+   ```
+
+4. **Option 1: Run with Docker Compose (Recommended for new developers)**:
+   ```bash
+   docker-compose up --build
+   ```
+   This will start the backend service, PostgreSQL database, and frontend service.
+
+5. **Option 2: Run locally without Docker**:
+   - Install PostgreSQL and create the database as described in the [Database Setup](#database-setup) section
+   - Run the application:
+     ```bash
+     go run main.go
+     ```
+
+### Common Troubleshooting Tips
+
+1. **Port already in use**: If you encounter port conflicts, modify the ports in `docker-compose.yml` or ensure no other services are using ports 8080, 3000, or 5432.
+
+2. **Database connection issues**:
+   - Ensure the database service is running
+   - Verify your environment variables in the `.env` file
+   - Check that the PostgreSQL user has the correct permissions
+
+3. **Docker build failures**:
+   - Ensure Docker daemon is running
+   - Check Docker has necessary permissions to access project directories
+   - Verify all dependencies in `go.mod` are correctly specified
+
+4. **Frontend not connecting to backend**:
+   - Check that both services are running
+   - Verify the `VITE_BACKEND_URL` environment variable is correctly set
+
+## Docker/Docker Compose Usage
+
+### Backend Docker Image
+
+To build and run the backend Docker image:
+
+1. **Building the Docker Image**:
+   ```bash
+   docker build -t rangkai-edu-backend:latest .
+   ```
+
+2. **Running the Docker Container**:
+   ```bash
+   docker run --rm -p 8080:8080 rangkai-edu-backend:latest
+   ```
+
+3. **Running with Environment Variables**:
+   ```bash
+   docker run --rm \
+     -p 8080:8080 \
+     -e DB_HOST=host.docker.internal \
+     -e DB_PORT=5432 \
+     -e DB_NAME=rangkaiedu_prod \
+     -e DB_USER=postgres \
+     -e DB_PASSWORD=secretpassword \
+     rangkai-edu-backend:latest
+   ```
+
+### Frontend Docker Image
+
+To build and run the frontend Docker image:
+
+1. **Navigate to the frontend directory**:
+   ```bash
+   cd ../frontend-app
+   ```
+
+2. **Building the Docker Image**:
+   ```bash
+   docker build -t rangkaiedu-frontend:latest .
+   ```
+
+3. **Running the Docker Container**:
+   ```bash
+   docker run -d -p 8080:80 --name rangkaiedu-frontend rangkaiedu-frontend:latest
+   ```
+
+### Docker Compose for Local Development
+
+For easier development and consistent environments across different machines, you can use Docker Compose to run the complete application stack.
 
 #### Running with Docker Compose
 
@@ -241,11 +362,15 @@ docker-compose up --build
 
 This command will:
 - Build the backend service from the Dockerfile
+- Build the frontend service from the frontend Dockerfile
 - Start a PostgreSQL database container
 - Set up networking between services
-- Mount volumes for data persistence
+- Mount volumes for data persistence and development
 
-The application will be available at `http://localhost:8080`.
+The applications will be available at:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8080
+- Database: localhost:5432 (PostgreSQL)
 
 To stop the services, press `Ctrl+C` in the terminal where docker-compose is running, or run:
 
@@ -253,41 +378,334 @@ To stop the services, press `Ctrl+C` in the terminal where docker-compose is run
 docker-compose down
 ```
 
+To stop services and remove volumes (WARNING: This will delete the database data):
+
+```bash
+docker-compose down -v
+```
+
+### Environment Variable Configuration
+
+The application uses environment variables for configuration. These can be set in multiple ways:
+
+1. **Using .env file**:
+   Create a `.env` file in the project root directory based on `config/.env.example`:
+   ```env
+   # Database Configuration
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=rangkai_edu
+   DB_USER=postgres
+   DB_PASSWORD=your_password
+   DB_SSLMODE=disable
+   
+   # Storage Configuration
+   STORAGE_PROVIDER=local
+   # For Alibaba Cloud OSS:
+   # OSS_BUCKET_NAME=your-bucket-name
+   # OSS_ACCESS_KEY_ID=your-access-key-id
+   # OSS_ACCESS_KEY_SECRET=your-access-key-secret
+   # OSS_REGION=ap-southeast-1
+   # OSS_ENDPOINT=https://oss-ap-southeast-1.aliyuncs.com
+   ```
+
+2. **Docker Compose environment variables**:
+   The `docker-compose.yml` file uses environment variables defined in the `.env` file.
+
+3. **Docker container environment variables**:
+   When running containers directly, you can pass environment variables using the `-e` flag as shown in the examples above.
+
+## Development
+
+### Running the Application Locally
+
+To run the application locally without Docker:
+
+```bash
+go run main.go
+```
+
+The server will start on port 8080 by default.
+
+### Running Tests
+
+To run the tests:
+
+```bash
+go test ./...
+```
+
+To run tests with coverage:
+
+```bash
+go test -cover ./...
+```
+
+To run tests with coverage and generate an HTML report:
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### Docker Development Environment
+
+For containerized development, see the [Docker Compose for Local Development](#docker-compose-for-local-development) section above.
+
 ## Git Branching Strategy
 
-This project follows a Git branching strategy based on the Gitflow workflow to manage code changes and releases effectively:
+This project follows an enhanced Git branching strategy based on the Gitflow workflow to manage code changes and releases effectively.
 
-### Branch Types
+### Branch Structure
 
-- **main**: The production-ready codebase. Only stable, tested code should be merged here.
-- **staging**: The pre-production environment for testing and validation before releasing to production.
-- **develop**: The main branch for active development. All new features and changes should be merged here first.
-- **feature/***: Feature branches for developing new functionality. These branches are created from `develop` and merged back into `develop` when complete.
-- **hotfix/***: Hotfix branches for urgent production fixes. These branches are created from `main` and merged back into both `main` and `develop`.
+1. **main**: The production-ready codebase
+   - Contains code that is currently running in production
+   - Only accepts merges from `staging` branch via pull requests
+   - Protected with strict rules
 
-### Workflow
+2. **staging**: The pre-production testing environment
+   - Contains code that is ready for production but undergoing final testing
+   - Only accepts merges from `develop` branch via pull requests
+   - Protected with moderate rules
 
-1. **Feature Development**:
-   - Create a new feature branch from `develop`: `git checkout -b feature/feature-name develop`
-   - Develop the feature and commit changes
-   - Push the branch to the remote repository
-   - Create a Pull Request to merge the feature branch into `develop`
+3. **develop**: The ongoing development branch
+   - Integration branch for features
+   - Accepts merges from feature branches
+   - Less restrictive than main and staging
 
-2. **Release Preparation**:
-   - Create a release branch from `develop`: `git checkout -b release/version-number develop`
-   - Perform final testing and bug fixes
-   - Merge the release branch into both `main` and `develop`
-   - Tag the release on `main`
+4. **Supporting Branches**:
+   - **feature/***: Feature branches for developing new functionality (branched from `develop`)
+   - **release/***: Release branches for release preparation (branched from `develop`)
+   - **hotfix/***: Hotfix branches for urgent production fixes (branched from `main`)
 
-3. **Production Hotfixes**:
-   - Create a hotfix branch from `main`: `git checkout -b hotfix/fix-description main`
-   - Implement the fix and test thoroughly
-   - Merge the hotfix branch into both `main` and `develop`
-   - Tag the new release on `main`
+### Workflow Diagrams
 
-### Branch Protection Rules
+```
+main       o --------------------------------------o------------------------o
+           |                                       |                        |
+           |                                       |                        |
+staging    | o------------------o------------------|------------------------|---o
+           | |                  |                  |                        |   |
+           | |                  |                  |                        |   |
+develop    | | o---o---o---o----|------------------|------------------------|---|---o
+           | | |   |   |   |    |                  |                        |   |   |
+           | | |   |   |   |    |                  |                        |   |   |
+feature    | | o---o   |   o----o                  |                        |   |   o
+           | |         |                          |                        |   |
+           | |         o--------------------------o                        |   |
+           | |                                                            |   |
+release    | o------------------------------------------------------------o   |
+           |                                                                  |
+           |                                                                  |
+hotfix     o------------------------------------------------------------------o
+```
 
-To ensure code quality and stability, the following branch protection rules are implemented:
-- **main**: Requires pull request reviews, status checks, and up-to-date branches before merging
-- **staging**: Requires pull request reviews and status checks before merging
-- **develop**: Requires status checks before merging
+### Workflows
+
+#### Feature Development Workflow
+
+1. Create a feature branch from `develop`
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/JIRA-123-short-description
+   ```
+
+2. Develop the feature and commit changes
+   ```bash
+   git add .
+   git commit -m "feat: implement user authentication"
+   ```
+
+3. Push the feature branch to remote
+   ```bash
+   git push origin feature/JIRA-123-short-description
+   ```
+
+4. Create a Pull Request from feature branch to `develop`
+5. After review and approval, merge the Pull Request
+6. Delete the feature branch
+
+#### Release Workflow
+
+1. Create a release branch from `develop`
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b release/v1.2.0
+   ```
+
+2. Perform release preparations (version bump, final testing, etc.)
+3. Push the release branch to remote
+   ```bash
+   git push origin release/v1.2.0
+   ```
+
+4. Create a Pull Request from release branch to `staging`
+5. After testing on staging environment, create a Pull Request from release branch to `main`
+6. After review and approval, merge both Pull Requests
+7. Create a release tag on `main`
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag -a v1.2.0 -m "Release version 1.2.0"
+   git push origin v1.2.0
+   ```
+
+8. Merge release branch back to `develop` to incorporate any changes
+9. Delete the release branch
+
+#### Hotfix Workflow
+
+1. Create a hotfix branch from `main`
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b hotfix/JIRA-456-critical-bug-fix
+   ```
+
+2. Implement the hotfix
+3. Push the hotfix branch to remote
+   ```bash
+   git push origin hotfix/JIRA-456-critical-bug-fix
+   ```
+
+4. Create a Pull Request from hotfix branch to `main`
+5. After review and approval, merge the Pull Request
+6. Create a release tag on `main`
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag -a v1.1.1 -m "Hotfix version 1.1.1"
+   git push origin v1.1.1
+   ```
+
+7. Create Pull Requests to merge the hotfix into `staging` and `develop`
+8. After review and approval, merge both Pull Requests
+9. Delete the hotfix branch
+
+### Merge Strategies and Code Review Process
+
+#### Merge Strategies
+
+1. **Merge Commit**:
+   - Used for: Release and hotfix branches
+   - Preserves complete history and chronological order
+   - Creates a merge commit
+
+2. **Squash and Merge**:
+   - Used for: Feature branches
+   - Creates a single commit with a summary of all changes
+   - Keeps history clean and linear
+   - Recommended for most feature branches
+
+3. **Rebase and Merge**:
+   - Used for: When maintaining a linear history is important
+   - Reapplies commits on top of the target branch
+   - Creates a linear history without merge commits
+
+#### Code Review Process
+
+All pull requests must be reviewed before merging:
+
+- Feature branches to `develop`: At least 1 reviewer
+- Release branches to `staging`: At least 1 reviewer
+- Release branches to `main`: At least 2 reviewers
+- Hotfix branches to `main`: At least 2 reviewers
+
+Review guidelines cover:
+- Code quality and adherence to project standards
+- Security considerations (no hardcoded credentials, proper input validation)
+- Test coverage and meaningful test cases
+- Documentation updates where necessary
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for Continuous Integration and Continuous Deployment.
+
+### GitHub Actions Workflows
+
+1. **CI Pipeline** (`.github/workflows/ci.yml`):
+   - Runs on push or pull request to `develop`, `staging`, or `main` branches
+   - Executes backend and frontend builds, tests, and security scans
+   - Builds and scans Docker images for vulnerabilities
+
+2. **CD Pipeline** (`.github/workflows/cd.yml`):
+   - Triggers after successful CI workflow completion
+   - Deploys to staging environment on successful `develop` branch builds
+   - Deploys to production environment on successful `main` branch builds
+
+3. **Security Scanning** (`.github/workflows/security.yml`):
+   - Runs daily at 2 AM UTC or manually via workflow dispatch
+   - Performs security scans on both backend and frontend code
+   - Checks for dependency vulnerabilities
+
+### Trigger Events
+
+- **CI Pipeline**:
+  - Push to `develop`, `staging`, or `main` branches
+  - Pull requests to `develop`, `staging`, or `main` branches
+
+- **CD Pipeline**:
+  - Successful completion of CI workflow
+
+- **Security Scanning**:
+  - Scheduled daily at 2 AM UTC
+  - Manual trigger via workflow dispatch
+
+### Deployment Process
+
+#### Staging Deployment
+- Triggered when CI workflow completes successfully on `develop` branch
+- Deploys to staging environment at https://staging.rangkaiedu.com
+- Environment variables are configured for staging
+
+#### Production Deployment
+- Triggered when CI workflow completes successfully on `main` branch
+- Deploys to production environment at https://rangkaiedu.com
+- Environment variables are configured for production
+
+The deployment process includes:
+1. Deploying Docker images to the target infrastructure
+2. Running database migrations if needed
+3. Performing health checks to ensure services are running properly
+4. Notifying the team of deployment status
+
+## Cloud Storage
+
+The application supports multiple storage providers for teaching materials:
+- Local file system storage (default for development)
+- Alibaba Cloud OSS (recommended for production)
+
+### Alibaba Cloud OSS Setup
+
+To use Alibaba Cloud OSS for storing teaching materials:
+
+1. **Set up infrastructure using Terraform**:
+   Follow the instructions in `terraform/README.md` to provision an OSS bucket and RAM user.
+
+2. **Configure environment variables**:
+   Update your `.env` file with the OSS configuration:
+   ```env
+   STORAGE_PROVIDER=oss
+   OSS_BUCKET_NAME=your-bucket-name
+   OSS_ACCESS_KEY_ID=your-access-key-id
+   OSS_ACCESS_KEY_SECRET=your-access-key-secret
+   OSS_REGION=ap-southeast-1
+   OSS_ENDPOINT=https://oss-ap-southeast-1.aliyuncs.com
+   ```
+
+3. **Run the application**:
+   Start the application using Docker Compose or run it locally.
+
+### Local Storage
+
+For development purposes, you can use local file system storage:
+
+1. **Configure environment variables**:
+   ```env
+   STORAGE_PROVIDER=local
+   ```
+
+2. **Run the application**:
+   Files will be stored in the `./uploads` directory.

@@ -58,6 +58,9 @@ COPY --from=builder /app/${APP_NAME} .
 # Copy config files if they exist
 COPY --from=builder /app/config/.env.example ./config/.env.example
 
+# Create directory for config files
+RUN mkdir -p ./config
+
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
 
