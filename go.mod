@@ -1,4 +1,4 @@
-module github.com/aprianimmanuel/backend-app
+module github.com/aprianimmanuel/rangkaiedu-backend
 
 go 1.24.0
 
