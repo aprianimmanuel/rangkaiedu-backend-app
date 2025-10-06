@@ -537,280 +537,12 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # Backend Connection Verification Job
-  backend-connection-verification:
-    name: Backend Connection Verification
-    runs-on: ubuntu-latest
-    needs: identify-branch-type
-    outputs:
-      backend-url: ${{ steps.set-backend-url.outputs.backend-url }}
-      connection-status: ${{ steps.health-check.outputs.connection-status }}
-      environment: ${{ steps.setup-environment.outputs.environment }}
-    timeout-minutes: 15
-    steps:
-      # Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Debug: Check current directory and structure
-      - name: Check directory structure
-        run: |
-          echo "=== Current Directory Structure ==="
-          pwd
-          ls -la
-          echo "=================================="
-
-      # Set up Node.js environment for frontend health check script
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      # Install health check dependencies
-      - name: Install health check dependencies
-        run: npm install -g axios
-
-      # Determine environment and set backend URL
-      - name: Setup environment and backend URL
-        id: setup-environment
-        run: |
-          echo "Determining environment and backend URL..."
-          
-          # Determine environment based on branch
-          if [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "feature" ]]; then
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "backend-url=http://localhost:8080" >> $GITHUB_OUTPUT
-            echo "Environment: Development, Backend URL: http://localhost:8080"
-          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "release" ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "backend-url=https://staging-api.rangkaiedu.com" >> $GITHUB_OUTPUT
-            echo "Environment: Staging, Backend URL: https://staging-api.rangkaiedu.com"
-          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "hotfix" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "backend-url=https://api.rangkaiedu.com" >> $GITHUB_OUTPUT
-            echo "Environment: Production, Backend URL: https://api.rangkaiedu.com"
-          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "develop" ]]; then
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "backend-url=http://localhost:8080" >> $GITHUB_OUTPUT
-            echo "Environment: Development, Backend URL: http://localhost:8080"
-          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "staging" ]]; then
-            echo "environment=staging" >> $GITHUB_OUTPUT
-            echo "backend-url=https://staging-api.rangkaiedu.com" >> $GITHUB_OUTPUT
-            echo "Environment: Staging, Backend URL: https://staging-api.rangkaiedu.com"
-          elif [[ "${{ needs.identify-branch-type.outputs.branch-type }}" == "main" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-            echo "backend-url=https://api.rangkaiedu.com" >> $GITHUB_OUTPUT
-            echo "Environment: Production, Backend URL: https://api.rangkaiedu.com"
-          else
-            echo "environment=development" >> $GITHUB_OUTPUT
-            echo "backend-url=http://localhost:8080" >> $GITHUB_OUTPUT
-            echo "Environment: Development (default), Backend URL: http://localhost:8080"
-          fi
-
-      # Debug: Network connectivity test
-      - name: Test network connectivity
-        run: |
-          echo "=== Network Connectivity Test ==="
-          echo "Testing basic network connectivity..."
-          
-          # Test DNS resolution
-          echo "Testing DNS resolution..."
-          if nslookup localhost; then
-            echo "✅ DNS resolution for localhost works"
-          else
-            echo "❌ DNS resolution for localhost failed"
-          fi
-          
-          # Test port connectivity
-          echo "Testing port connectivity..."
-          if nc -z localhost 8080; then
-            echo "✅ Port 8080 is open on localhost"
-          else
-            echo "❌ Port 8080 is not open on localhost"
-          fi
-          
-          # Test HTTP connectivity
-          echo "Testing HTTP connectivity..."
-          if curl -f http://localhost:8080/health; then
-            echo "✅ HTTP endpoint is responding"
-          else
-            echo "❌ HTTP endpoint is not responding"
-          fi
-          
-          echo "=================================="
-
-      # Create health check script
-      - name: Create health check script
-        run: |
-          cat > health-check.js << 'EOF'
-          const axios = require('axios');
-          const https = require('https');
-          const fs = require('fs');
-          
-          // Configuration
-          const config = {
-            backendUrl: process.env.BACKEND_URL || '${{ steps.setup-environment.outputs.backend-url }}',
-            maxRetries: 5,
-            retryDelay: 10000, // 10 seconds
-            timeout: 30000, // 30 seconds
-            expectedStatus: 200,
-            expectedResponse: { status: 'healthy' }
-          };
-          
-          // Custom HTTPS agent for self-signed certificates in development
-          const httpsAgent = config.backendUrl.startsWith('https://localhost') ?
-            new https.Agent({ rejectUnauthorized: false }) : undefined;
-          
-          console.log(`🔍 Starting backend connection verification for: ${config.backendUrl}`);
-          console.log(`📋 Environment: ${{ steps.setup-environment.outputs.environment }}`);
-          console.log(`⏱️  Max retries: ${config.maxRetries}, Delay: ${config.retryDelay/1000}s`);
-          
-          async function checkBackendHealth() {
-            let lastError = null;
-            
-            for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
-              try {
-                console.log(`\n🔄 Attempt ${attempt}/${config.maxRetries} - Checking backend health...`);
-                
-                const response = await axios({
-                  method: 'get',
-                  url: `${config.backendUrl}/health`,
-                  timeout: config.timeout,
-                  httpsAgent: httpsAgent,
-                  validateStatus: function (status) {
-                    return status < 500; // Accept 2xx and 4xx status codes
-                  }
-                });
-                
-                console.log(`✅ HTTP Status: ${response.status}`);
-                console.log(`📄 Response:`, JSON.stringify(response.data, null, 2));
-                
-                // Check if response status is acceptable
-                if (response.status === config.expectedStatus) {
-                  // Check if response contains expected status
-                  if (response.data && response.data.status === 'healthy') {
-                    console.log('✅ Backend health check PASSED');
-                    console.log(`🎯 Backend is available at: ${config.backendUrl}`);
-                    return { success: true, status: 'healthy', response: response.data };
-                  } else {
-                    console.log('⚠️  Backend responded but health status is not "healthy"');
-                    console.log(`📄 Response status: ${response.data?.status || 'unknown'}`);
-                  }
-                } else {
-                  console.log(`⚠️  Unexpected HTTP status: ${response.status}`);
-                }
-                
-              } catch (error) {
-                lastError = error;
-                console.log(`❌ Attempt ${attempt} failed:`);
-                
-                if (error.response) {
-                  console.log(`   HTTP Status: ${error.response.status}`);
-                  console.log(`   Response:`, JSON.stringify(error.response.data, null, 2));
-                } else if (error.request) {
-                  console.log(`   Network error: ${error.message}`);
-                  console.log(`   This could indicate the backend is not running or not accessible`);
-                } else {
-                  console.log(`   Request error: ${error.message}`);
-                }
-                
-                // Check if this is a certificate error for localhost
-                if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' && config.backendUrl.includes('localhost')) {
-                  console.log('🔒 Certificate verification failed for localhost - this is expected in development');
-                }
-              }
-              
-              // If not the last attempt, wait before retrying
-              if (attempt < config.maxRetries) {
-                console.log(`⏳ Waiting ${config.retryDelay/1000}s before next attempt...`);
-                await new Promise(resolve => setTimeout(resolve, config.retryDelay));
-              }
-            }
-            
-            console.log(`\n❌ All ${config.maxRetries} attempts failed`);
-            if (lastError) {
-              console.log(`🚨 Last error: ${lastError.message}`);
-            }
-            console.log(`🔧 Troubleshooting suggestions:`);
-            console.log(`   1. Ensure backend service is running at ${config.backendUrl}`);
-            console.log(`   2. Check network connectivity and firewall settings`);
-            console.log(`   3. Verify backend health endpoint is accessible`);
-            console.log(`   4. Check if backend is listening on the correct port`);
-            
-            return { success: false, status: 'unhealthy', error: lastError?.message || 'Unknown error' };
-          }
-          
-          // Execute health check
-          checkBackendHealth()
-            .then(result => {
-              if (result.success) {
-                console.log('\n🎉 Backend connection verification SUCCESSFUL');
-                process.exit(0);
-              } else {
-                console.log('\n💀 Backend connection verification FAILED');
-                console.log(`📊 Status: ${result.status}`);
-                if (result.error) {
-                  console.log(`🚨 Error: ${result.error}`);
-                }
-                process.exit(1);
-              }
-            })
-            .catch(error => {
-              console.log('\n💥 Unexpected error during health check:');
-              console.log(error);
-              process.exit(1);
-            });
-          EOF
-
-      # Run backend connection verification
-      - name: Verify backend connection
-        id: health-check
-        env:
-          BACKEND_URL: ${{ steps.setup-environment.outputs.backend-url }}
-        run: |
-          echo "🚀 Starting backend connection verification..."
-          echo "📍 Backend URL: $BACKEND_URL"
-          echo "🌍 Environment: ${{ steps.setup-environment.outputs.environment }}"
-          echo "⏱️  Timeout: 5 minutes"
-          
-          # Execute health check with timeout
-          timeout 300s node health-check.js || {
-            echo "❌ Backend connection verification timed out or failed"
-            echo "📋 Backend URL: $BACKEND_URL"
-            echo "🌍 Environment: ${{ steps.setup-environment.outputs.environment }}"
-            exit 1
-          }
-
-      # Log connection verification results
-      - name: Log connection verification results
-        if: always()
-        run: |
-          echo "=== Backend Connection Verification Summary ==="
-          echo "🌍 Environment: ${{ steps.setup-environment.outputs.environment }}"
-          echo "📍 Backend URL: ${{ steps.setup-environment.outputs.backend-url }}"
-          echo "🔗 Connection Status: ${{ steps.health-check.outputs.connection-status }}"
-          echo "⏰ Timestamp: $(date -u)"
-          echo "==============================================="
-
-      # Set connection status output
-      - name: Set connection status output
-        run: |
-          if [[ "${{ steps.health-check.outcome }}" == "success" ]]; then
-            echo "connection-status=healthy" >> $GITHUB_OUTPUT
-            echo "✅ Backend connection verified successfully"
-          else
-            echo "connection-status=unhealthy" >> $GITHUB_OUTPUT
-            echo "❌ Backend connection verification failed"
-            exit 1
-          fi
 
   # Frontend CI Pipeline
   frontend-ci:
     name: Frontend CI
     runs-on: ubuntu-latest
-    needs: [backend-connection-verification, identify-branch-type]
-    if: needs.backend-connection-verification.outputs.connection-status == 'healthy'
+    needs: identify-branch-type
     steps:
       # Checkout code
       - name: Checkout code
@@ -892,8 +624,6 @@ jobs:
       - name: Build frontend
         run: |
           echo "Building frontend..."
-          echo "Backend URL: ${{ needs.backend-connection-verification.outputs.backend-url }}"
-          echo "Environment: ${{ needs.backend-connection-verification.outputs.environment }}"
           cd ../frontend-app
           
           # Debug: Check JWT decode issue
@@ -926,9 +656,6 @@ jobs:
             echo "=================="
             exit 1
           }
-        env:
-          VITE_BACKEND_URL: ${{ needs.backend-connection-verification.outputs.backend-url }}
-          VITE_APP_ENV: ${{ needs.backend-connection-verification.outputs.environment }}
 
       # Debug: Check build output
       - name: Check build output
@@ -980,7 +707,7 @@ jobs:
   # Push Docker Images to GHCR
   push-images:
     name: Push Docker Images
-    needs: [health-check-verification, backend-connection-verification, backend-ci, frontend-ci, identify-branch-type]
+    needs: [health-check-verification, backend-ci, frontend-ci, identify-branch-type]
     runs-on: ubuntu-latest
     # Only run on push to develop, staging, main, release/*, or hotfix/* branches (exclude feature branches)
     if: github.event_name == 'push' && (contains(fromJson('["develop", "staging", "main"]'), github.ref_name) || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'hotfix/')) && !startsWith(github.ref_name, 'feature/')
@@ -1050,7 +777,7 @@ jobs:
   # Deploy to Staging Environment
   deploy-staging:
     name: Deploy to Staging
-    needs: [push-images, health-check-verification, backend-connection-verification]
+    needs: [push-images, health-check-verification]
     runs-on: ubuntu-latest
     # Only run on push to develop, release/*, or hotfix/* branches (exclude feature branches)
     if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'hotfix/')) && !startsWith(github.ref_name, 'feature/')
