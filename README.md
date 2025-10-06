@@ -222,7 +222,7 @@ The database connection uses a connection pool implemented with `pgxpool` with t
 
 Example usage:
 ```go
-import "github.com/aprianimmanuel/backend-app/pkg/db"
+import "github.com/aprianimmanuel/rangkaiedu-backend/pkg/db"
 
 // Connect to the database
 database, err := db.ConnectDB()

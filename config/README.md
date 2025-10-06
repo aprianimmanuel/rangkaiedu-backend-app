@@ -25,7 +25,7 @@ The database configuration is managed through the `config` package which support
 ### Usage
 
 ```go
-import "github.com/aprianimmanuel/backend-app/config"
+import "github.com/aprianimmanuel/rangkaiedu-backend/config"
 
 // Load configuration
 dbConfig, err := config.LoadConfig()

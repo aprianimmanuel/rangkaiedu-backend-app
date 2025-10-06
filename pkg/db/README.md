@@ -9,7 +9,7 @@ The `db` package implements a singleton pattern for database connections using `
 ## Usage
 
 ```go
-import "github.com/aprianimmanuel/backend-app/pkg/db"
+import "github.com/aprianimmanuel/rangkaiedu-backend/pkg/db"
 
 // Connect to the database
 database, err := db.ConnectDB()
