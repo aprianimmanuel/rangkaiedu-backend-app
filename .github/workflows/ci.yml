@@ -1,10 +1,11 @@
+---
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ feature/*, release/*, hotfix/*, develop, staging, main ]
+    branches: [feature/*, release/*, hotfix/*, develop, staging, main]
   pull_request:
-    branches: [ feature/*, release/*, hotfix/*, develop, staging, main ]
+    branches: [feature/*, release/*, hotfix/*, develop, staging, main]
 
 env:
   # Backend Docker image configuration
