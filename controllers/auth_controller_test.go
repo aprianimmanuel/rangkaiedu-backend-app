@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"bytes"
-	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,10 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/rangkaiedu-backend/config"
-	"github.com/aprianimmanuel/rangkaiedu-backend/controllers"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/password"
 )
@@ -61,16 +57,16 @@ func setupTestRouter() *gin.Engine {
 	// Manually set up auth routes to avoid import cycle
 	auth := r.Group("/api/auth")
 	{
-		auth.POST("/register", controllers.RegisterHandler)
-		auth.POST("/send-otp", controllers.SendOTPHandler)
-		auth.POST("/verify-otp", controllers.VerifyOTPHandler)
-		auth.POST("/login", controllers.LoginHandler)
+		auth.POST("/register", RegisterHandler)
+		auth.POST("/send-otp", SendOTPHandler)
+		auth.POST("/verify-otp", VerifyOTPHandler)
+		auth.POST("/login", LoginHandler)
 	}
 
 	return r
 }
 
-func createTestPool(t *testing.T) *pgxpool.Pool {
+func createTestPool(t *testing.T) *sql.DB {
 	// Use the global database connection pool
 	pool := db.GetDB()
 	if pool == nil {
@@ -79,16 +75,16 @@ func createTestPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func cleanupUser(t *testing.T, pool *pgxpool.Pool, email string) {
-	_, err := pool.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
-	if err != nil && err != pgx.ErrNoRows {
+func cleanupUser(t *testing.T, pool *sql.DB, email string) {
+	_, err := pool.Exec("DELETE FROM users WHERE email = $1", email)
+	if err != nil {
 		t.Logf("Cleanup warning for %s: %v", email, err)
 	}
 }
 
-func cleanupOTP(t *testing.T, pool *pgxpool.Pool, identifier string) {
-	_, err := pool.Exec(context.Background(), "DELETE FROM otps WHERE identifier = $1", identifier)
-	if err != nil && err != pgx.ErrNoRows {
+func cleanupOTP(t *testing.T, pool *sql.DB, identifier string) {
+	_, err := pool.Exec("DELETE FROM otps WHERE identifier = $1", identifier)
+	if err != nil {
 		t.Logf("Cleanup warning for OTP %s: %v", identifier, err)
 	}
 }
@@ -125,7 +121,7 @@ func TestRegisterHandler_Success(t *testing.T) {
 
 	// Verify user in DB
 	var name, storedEmail, phone, role, hash string
-	err := pool.QueryRow(context.Background(), "SELECT name, email, phone, role, password_hash FROM users WHERE email = $1", email).Scan(&name, &storedEmail, &phone, &role, &hash)
+	err := pool.QueryRow("SELECT name, email, phone, role, password_hash FROM users WHERE email = $1", email).Scan(&name, &storedEmail, &phone, &role, &hash)
 	if err != nil {
 		t.Fatalf("Failed to query user: %v", err)
 	}
@@ -188,7 +184,7 @@ func TestRegisterHandler_WeakPassword(t *testing.T) {
 
 	// Verify no user created
 	var count int
-	pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM users WHERE email = $1", email).Scan(&count)
+	pool.QueryRow("SELECT COUNT(*) FROM users WHERE email = $1", email).Scan(&count)
 	if count != 0 {
 		t.Error("User should not be created with weak password")
 		cleanupUser(t, pool, email)
@@ -389,7 +385,7 @@ func TestLoginHandler_NoPasswordSet(t *testing.T) {
 	}
 
 	var hash sql.NullString
-	err := pool.QueryRow(context.Background(), "SELECT password_hash FROM users WHERE email = $1", email).Scan(&hash)
+	err := pool.QueryRow("SELECT password_hash FROM users WHERE email = $1", email).Scan(&hash)
 	if err != nil {
 		t.Fatalf("Failed to query hash: %v", err)
 	}
@@ -442,7 +438,7 @@ func TestSendOTPHandler(t *testing.T) {
 
 		var otpStr string
 		var expiry time.Time
-		err := pool.QueryRow(context.Background(), "SELECT otp, expiry FROM otps WHERE identifier = $1", email).Scan(&otpStr, &expiry)
+		err := pool.QueryRow("SELECT otp, expiry FROM otps WHERE identifier = $1", email).Scan(&otpStr, &expiry)
 		if err != nil {
 			t.Fatalf("Failed to query OTP: %v", err)
 		}
@@ -485,7 +481,7 @@ func TestSendOTPHandler(t *testing.T) {
 		}
 
 		var otpStr string
-		err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", phoneNum).Scan(&otpStr)
+		err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", phoneNum).Scan(&otpStr)
 		if err != nil {
 			t.Fatalf("Failed to query OTP: %v", err)
 		}
@@ -595,7 +591,7 @@ func TestVerifyOTPHandler(t *testing.T) {
 		}
 
 		var otp string
-		err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+		err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 		if err != nil {
 			t.Fatalf("Failed to get OTP: %v", err)
 		}
@@ -624,7 +620,7 @@ func TestVerifyOTPHandler(t *testing.T) {
 		}
 
 		var count int
-		err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
+		err = pool.QueryRow("SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
 		if err != nil {
 			t.Fatalf("Failed to check deletion: %v", err)
 		}
@@ -664,7 +660,7 @@ func TestVerifyOTPHandler(t *testing.T) {
 		}
 
 		var otp string
-		err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+		err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 		if err != nil {
 			t.Fatalf("Failed to get OTP: %v", err)
 		}
@@ -688,7 +684,7 @@ func TestVerifyOTPHandler(t *testing.T) {
 		}
 
 		var count int
-		err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
+		err = pool.QueryRow("SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
 		if err != nil {
 			t.Fatalf("Failed to check: %v", err)
 		}
@@ -728,13 +724,13 @@ func TestVerifyOTPHandler(t *testing.T) {
 			t.Fatalf("Send OTP failed: %d", wSend.Code)
 		}
 
-		_, err := pool.Exec(context.Background(), "UPDATE otps SET expiry = NOW() - INTERVAL '1 hour' WHERE identifier = $1", email)
+		_, err := pool.Exec("UPDATE otps SET expiry = NOW() - INTERVAL '1 hour' WHERE identifier = $1", email)
 		if err != nil {
 			t.Fatalf("Failed to set expired: %v", err)
 		}
 
 		var otp string
-		err = pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+		err = pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 		if err != nil {
 			t.Fatalf("Failed to get OTP: %v", err)
 		}
@@ -758,7 +754,7 @@ func TestVerifyOTPHandler(t *testing.T) {
 		}
 
 		var count int
-		err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
+		err = pool.QueryRow("SELECT COUNT(*) FROM otps WHERE identifier = $1", email).Scan(&count)
 		if err != nil {
 			t.Fatalf("Failed to check: %v", err)
 		}
@@ -837,7 +833,7 @@ func TestEndToEndAuthFlow(t *testing.T) {
 
 	// Get OTP
 	var otp string
-	err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+	err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 	if err != nil {
 		t.Fatalf("Failed to get OTP: %v", err)
 	}

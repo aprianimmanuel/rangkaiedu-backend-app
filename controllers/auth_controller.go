@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/email"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/otp"
@@ -75,13 +73,13 @@ func RegisterHandler(c *gin.Context) {
 	// Check for duplicate email
 	var existingEmail string
 	log.Printf("Checking for duplicate email: %s", req.Email)
-	err = pool.QueryRow(ctx, "SELECT email FROM users WHERE email = $1", req.Email).Scan(&existingEmail)
+	err = pool.QueryRowContext(ctx, "SELECT email FROM users WHERE email = ?", req.Email).Scan(&existingEmail)
 	if err == nil {
 		log.Printf("Email already exists: %s", req.Email)
 		c.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
 		return
 	}
-	if err != pgx.ErrNoRows {
+	if err != sql.ErrNoRows {
 		log.Printf("Database error checking email: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking email"})
 		return
@@ -90,12 +88,12 @@ func RegisterHandler(c *gin.Context) {
 
 	// Check for duplicate phone
 	var existingPhone string
-	err = pool.QueryRow(ctx, "SELECT phone FROM users WHERE phone = $1", req.Phone).Scan(&existingPhone)
+	err = pool.QueryRowContext(ctx, "SELECT phone FROM users WHERE phone = ?", req.Phone).Scan(&existingPhone)
 	if err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Phone number already exists"})
 		return
 	}
-	if err != pgx.ErrNoRows {
+	if err != sql.ErrNoRows {
 		log.Printf("Database error checking phone: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking phone"})
 		return
@@ -112,8 +110,8 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	// Insert the new user (password_hash can be NULL if optional)
-	_, err = pool.Exec(ctx,
-		"INSERT INTO users (name, email, phone, role, password_hash) VALUES ($1, $2, $3, $4, $5)",
+	_, err = pool.ExecContext(ctx,
+		"INSERT INTO users (name, email, phone, role, password_hash) VALUES (?, ?, ?, ?, ?)",
 		req.Name, req.Email, req.Phone, req.Role, passwordHash.String,
 	)
 	if err != nil {
@@ -198,11 +196,11 @@ func SendOTPHandler(c *gin.Context) {
 	var exists bool
 	var query string
 	if req.Type == "email" {
-		query = "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)"
+		query = "SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)"
 	} else {
-		query = "SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1)"
+		query = "SELECT EXISTS(SELECT 1 FROM users WHERE phone = ?)"
 	}
-	err = pool.QueryRow(ctx, query, req.Identifier).Scan(&exists)
+	err = pool.QueryRowContext(ctx, query, req.Identifier).Scan(&exists)
 	if err != nil {
 		log.Printf("Database error checking user existence: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
@@ -279,13 +277,13 @@ func VerifyOTPHandler(c *gin.Context) {
 	var userID, email, phone, role string
 	var query string
 	if isEmail(req.Identifier) {
-		query = "SELECT id, email, phone, role FROM users WHERE email = $1"
-		err = pool.QueryRow(ctx, query, req.Identifier).Scan(&userID, &email, &phone, &role)
+		query = "SELECT id, email, phone, role FROM users WHERE email = ?"
+		err = pool.QueryRowContext(ctx, query, req.Identifier).Scan(&userID, &email, &phone, &role)
 	} else {
-		query = "SELECT id, email, phone, role FROM users WHERE phone = $1"
-		err = pool.QueryRow(ctx, query, req.Identifier).Scan(&userID, &email, &phone, &role)
+		query = "SELECT id, email, phone, role FROM users WHERE phone = ?"
+		err = pool.QueryRowContext(ctx, query, req.Identifier).Scan(&userID, &email, &phone, &role)
 	}
-	if err == pgx.ErrNoRows {
+	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
@@ -353,8 +351,8 @@ func LoginHandler(c *gin.Context) {
 
 	// Query user by email to get phone number for consistent claims
 	var userID, email, phone, role, passwordHash string
-	err = pool.QueryRow(ctx, "SELECT id, email, phone, role, password_hash FROM users WHERE email = $1", req.Email).Scan(&userID, &email, &phone, &role, &passwordHash)
-	if err == pgx.ErrNoRows {
+	err = pool.QueryRowContext(ctx, "SELECT id, email, phone, role, password_hash FROM users WHERE email = ?", req.Email).Scan(&userID, &email, &phone, &role, &passwordHash)
+	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}

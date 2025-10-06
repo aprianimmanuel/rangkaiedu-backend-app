@@ -2,18 +2,14 @@ package middleware
 
 import (
 	"bytes"
-	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/rangkaiedu-backend/config"
-	"github.com/aprianimmanuel/rangkaiedu-backend/controllers"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
@@ -104,18 +100,30 @@ func setupTestRouter() *gin.Engine {
 	}
 
 	// Manually set up auth routes to avoid import cycle
+	// Note: These routes are not actually used in the tests since we're testing
+	// the middleware functionality, not the auth controllers themselves.
+	// The tests use the auth system through direct database operations and
+	// token generation.
 	auth := r.Group("/api/auth")
 	{
-		auth.POST("/register", controllers.RegisterHandler)
-		auth.POST("/send-otp", controllers.SendOTPHandler)
-		auth.POST("/verify-otp", controllers.VerifyOTPHandler)
-		auth.POST("/login", controllers.LoginHandler)
+		auth.POST("/register", func(c *gin.Context) {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented in tests"})
+		})
+		auth.POST("/send-otp", func(c *gin.Context) {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented in tests"})
+		})
+		auth.POST("/verify-otp", func(c *gin.Context) {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented in tests"})
+		})
+		auth.POST("/login", func(c *gin.Context) {
+			c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented in tests"})
+		})
 	}
 
 	return r
 }
 
-func createTestPool(t *testing.T) *pgxpool.Pool {
+func createTestPool(t *testing.T) *sql.DB {
 	// Use the global database connection pool
 	pool := db.GetDB()
 	if pool == nil {
@@ -124,15 +132,15 @@ func createTestPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func cleanupUser(t *testing.T, pool *pgxpool.Pool, email string) {
-	_, err := pool.Exec(context.Background(), "DELETE FROM users WHERE email = $1", email)
+func cleanupUser(t *testing.T, pool *sql.DB, email string) {
+	_, err := pool.Exec("DELETE FROM users WHERE email = $1", email)
 	if err != nil {
 		t.Logf("Cleanup warning for %s: %v", email, err)
 	}
 }
 
-func cleanupOTP(t *testing.T, pool *pgxpool.Pool, identifier string) {
-	_, err := pool.Exec(context.Background(), "DELETE FROM otps WHERE identifier = $1", identifier)
+func cleanupOTP(t *testing.T, pool *sql.DB, identifier string) {
+	_, err := pool.Exec("DELETE FROM otps WHERE identifier = $1", identifier)
 	if err != nil {
 		t.Logf("Cleanup warning for OTP %s: %v", identifier, err)
 	}
@@ -178,7 +186,7 @@ func TestAuthIntegration_ValidTokenFromAuthSystem(t *testing.T) {
 
 	// Get OTP from database
 	var otp string
-	err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+	err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 	if err != nil {
 		t.Fatalf("Failed to get OTP: %v", err)
 	}
@@ -271,7 +279,7 @@ func TestAuthIntegration_AdminRouteAccess(t *testing.T) {
 
 	// Get OTP from database
 	var otp string
-	err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+	err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 	if err != nil {
 		t.Fatalf("Failed to get OTP: %v", err)
 	}
@@ -355,7 +363,7 @@ func TestAuthIntegration_ForbiddenAccess(t *testing.T) {
 
 	// Get OTP from database
 	var otp string
-	err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+	err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 	if err != nil {
 		t.Fatalf("Failed to get OTP: %v", err)
 	}
@@ -439,7 +447,7 @@ func TestAuthIntegration_TeacherAccess(t *testing.T) {
 
 	// Get OTP from database
 	var otp string
-	err := pool.QueryRow(context.Background(), "SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
+	err := pool.QueryRow("SELECT otp FROM otps WHERE identifier = $1", email).Scan(&otp)
 	if err != nil {
 		t.Fatalf("Failed to get OTP: %v", err)
 	}

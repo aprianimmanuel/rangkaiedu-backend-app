@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
@@ -186,7 +185,7 @@ func checkDatabaseHealth() (string, map[string]interface{}) {
 
 	// Test database connection with a simple query
 	var result string
-	err := pool.QueryRow(ctx, "SELECT NOW()").Scan(&result)
+	err := pool.QueryRowContext(ctx, "SELECT NOW()").Scan(&result)
 	if err != nil {
 		log.Printf("Database query failed: %v", err)
 		return "unhealthy", map[string]interface{}{
@@ -195,14 +194,10 @@ func checkDatabaseHealth() (string, map[string]interface{}) {
 		}
 	}
 
-	// Check connection pool stats
-	stats := pool.Stat()
-	
+	// For sql.DB, we can't get detailed stats like with pgxpool.Pool
+	// But we can check if the connection is working
 	return "healthy", map[string]interface{}{
-		"connected_at":      stats.AcquiredConns,
-		"total_connections": pool.Stat().TotalConns,
-		"available_conns":   pool.Stat().IdleConns,
-		"query_result":      result,
+		"query_result": result,
 	}
 }
 

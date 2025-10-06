@@ -13,8 +13,11 @@ var DB *sql.DB
 
 // Init initializes the database connection pool
 func Init() error {
-	cfg := config.Load()
-	
+	return InitWithConfig(config.Load())
+}
+
+// InitWithConfig initializes the database connection pool with a specific config
+func InitWithConfig(cfg *config.Config) error {
 	db, err := sql.Open("pgx", cfg.DSN())
 	if err != nil {
 		return err

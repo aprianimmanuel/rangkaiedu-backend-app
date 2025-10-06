@@ -12,8 +12,6 @@ import (
 	"log"
 	"math/big"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // OTPExpiryDuration defines the validity period for OTPs (10 minutes).
@@ -31,11 +29,11 @@ func GenerateOTP() (string, error) {
 }
 
 // SaveOTP stores the OTP in the database with an expiry time.
-func SaveOTP(ctx context.Context, pool *pgxpool.Pool, identifier, otp string) error {
+func SaveOTP(ctx context.Context, db *sql.DB, identifier, otp string) error {
 	log.Printf("Saving OTP for identifier: %s", identifier)
 	expiry := time.Now().Add(OTPExpiryDuration)
-	_, err := pool.Exec(ctx,
-		"INSERT INTO otps (identifier, otp, expiry) VALUES ($1, $2, $3) ON CONFLICT (identifier, otp) DO NOTHING",
+	_, err := db.ExecContext(ctx,
+		"INSERT INTO otps (identifier, otp, expiry) VALUES (?, ?, ?) ON CONFLICT (identifier, otp) DO NOTHING",
 		identifier, otp, expiry,
 	)
 	if err != nil {
@@ -47,11 +45,11 @@ func SaveOTP(ctx context.Context, pool *pgxpool.Pool, identifier, otp string) er
 }
 
 // VerifyAndDeleteOTP verifies the OTP for the identifier, checks expiry, and deletes it if valid.
-func VerifyAndDeleteOTP(ctx context.Context, pool *pgxpool.Pool, identifier, otp string) (bool, error) {
+func VerifyAndDeleteOTP(ctx context.Context, db *sql.DB, identifier, otp string) (bool, error) {
 	log.Printf("Verifying OTP for identifier: %s", identifier)
 	var count int
-	err := pool.QueryRow(ctx,
-		"DELETE FROM otps WHERE identifier = $1 AND otp = $2 AND expiry > NOW() RETURNING 1",
+	err := db.QueryRowContext(ctx,
+		"DELETE FROM otps WHERE identifier = ? AND otp = ? AND expiry > NOW() RETURNING 1",
 		identifier, otp,
 	).Scan(&count)
 	if err == sql.ErrNoRows {
@@ -67,8 +65,8 @@ func VerifyAndDeleteOTP(ctx context.Context, pool *pgxpool.Pool, identifier, otp
 }
 
 // CleanupExpiredOTPs can be called periodically to remove old OTPs (optional, for maintenance).
-func CleanupExpiredOTPs(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, "DELETE FROM otps WHERE expiry <= NOW()")
+func CleanupExpiredOTPs(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, "DELETE FROM otps WHERE expiry <= NOW()")
 	if err != nil {
 		return fmt.Errorf("failed to cleanup expired OTPs: %w", err)
 	}

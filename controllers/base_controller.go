@@ -1,17 +1,16 @@
 package controllers
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
 	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
 // GetDBConnection returns a database connection pool
-func GetDBConnection() (*pgxpool.Pool, error) {
+func GetDBConnection() (*sql.DB, error) {
 	// Use the global database connection pool
 	pool := db.GetDB()
 	if pool == nil {

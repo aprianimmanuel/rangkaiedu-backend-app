@@ -78,11 +78,11 @@ func AddStudentToClass(c *gin.Context) {
 	// For teachers, verify they are assigned to the class
 	if user.Role == string(middleware.RoleTeacher) {
 		var exists bool
-		err = db.QueryRow(ctx,
+		err = db.QueryRowContext(ctx,
 			`SELECT EXISTS(
-				SELECT 1 FROM class_teachers ct 
-				JOIN teachers t ON ct.teacher_id = t.id 
-				WHERE ct.class_id = $1 AND t.user_id = $2
+				SELECT 1 FROM class_teachers ct
+				JOIN teachers t ON ct.teacher_id = t.id
+				WHERE ct.class_id = ? AND t.user_id = ?
 			)`, classID, user.ID).Scan(&exists)
 		if err != nil {
 			log.Printf("Failed to check teacher assignment: %v", err)
@@ -98,7 +98,7 @@ func AddStudentToClass(c *gin.Context) {
 
 	// Check if class exists
 	var classExists bool
-	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = $1)", classID).Scan(&classExists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?)", classID).Scan(&classExists)
 	if err != nil {
 		log.Printf("Failed to check class existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check class")
@@ -112,7 +112,7 @@ func AddStudentToClass(c *gin.Context) {
 
 	// Check if student exists
 	var studentExists bool
-	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM students WHERE id = $1)", req.StudentID).Scan(&studentExists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM students WHERE id = ?)", req.StudentID).Scan(&studentExists)
 	if err != nil {
 		log.Printf("Failed to check student existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check student")
@@ -126,8 +126,8 @@ func AddStudentToClass(c *gin.Context) {
 
 	// Check if student is already enrolled in the class
 	var enrollmentExists bool
-	err = db.QueryRow(ctx, 
-		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = $1 AND student_id = $2)", 
+	err = db.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = ? AND student_id = ?)",
 		classID, req.StudentID).Scan(&enrollmentExists)
 	if err != nil {
 		log.Printf("Failed to check enrollment: %v", err)
@@ -144,9 +144,9 @@ func AddStudentToClass(c *gin.Context) {
 	enrollmentID := uuid.New().String()
 	now := time.Now()
 
-	_, err = db.Exec(ctx,
+	_, err = db.ExecContext(ctx,
 		`INSERT INTO student_enrollments (id, class_id, student_id, status, created_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
+		 VALUES (?, ?, ?, ?, ?)`,
 		enrollmentID, classID, req.StudentID, "active", now)
 	if err != nil {
 		log.Printf("Failed to create enrollment: %v", err)
@@ -209,11 +209,11 @@ func GetClassRoster(c *gin.Context) {
 	// For teachers, verify they are assigned to the class
 	if user.Role == string(middleware.RoleTeacher) {
 		var exists bool
-		err = db.QueryRow(ctx,
+		err = db.QueryRowContext(ctx,
 			`SELECT EXISTS(
-				SELECT 1 FROM class_teachers ct 
-				JOIN teachers t ON ct.teacher_id = t.id 
-				WHERE ct.class_id = $1 AND t.user_id = $2
+				SELECT 1 FROM class_teachers ct
+				JOIN teachers t ON ct.teacher_id = t.id
+				WHERE ct.class_id = ? AND t.user_id = ?
 			)`, classID, user.ID).Scan(&exists)
 		if err != nil {
 			log.Printf("Failed to check teacher assignment: %v", err)
@@ -229,7 +229,7 @@ func GetClassRoster(c *gin.Context) {
 
 	// Check if class exists
 	var classExists bool
-	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = $1)", classID).Scan(&classExists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?)", classID).Scan(&classExists)
 	if err != nil {
 		log.Printf("Failed to check class existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check class")
@@ -247,10 +247,10 @@ func GetClassRoster(c *gin.Context) {
 		FROM student_enrollments se
 		JOIN students s ON se.student_id = s.id
 		JOIN users u ON s.user_id = u.id
-		WHERE se.class_id = $1
+		WHERE se.class_id = ?
 		ORDER BY u.name`
 
-	rows, err := db.Query(ctx, query, classID)
+	rows, err := db.QueryContext(ctx, query, classID)
 	if err != nil {
 		log.Printf("Failed to query class roster: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve class roster")
@@ -346,11 +346,11 @@ func RemoveStudentFromClass(c *gin.Context) {
 	// For teachers, verify they are assigned to the class
 	if user.Role == string(middleware.RoleTeacher) {
 		var exists bool
-		err = db.QueryRow(ctx,
+		err = db.QueryRowContext(ctx,
 			`SELECT EXISTS(
-				SELECT 1 FROM class_teachers ct 
-				JOIN teachers t ON ct.teacher_id = t.id 
-				WHERE ct.class_id = $1 AND t.user_id = $2
+				SELECT 1 FROM class_teachers ct
+				JOIN teachers t ON ct.teacher_id = t.id
+				WHERE ct.class_id = ? AND t.user_id = ?
 			)`, classID, user.ID).Scan(&exists)
 		if err != nil {
 			log.Printf("Failed to check teacher assignment: %v", err)
@@ -366,8 +366,8 @@ func RemoveStudentFromClass(c *gin.Context) {
 
 	// Check if enrollment exists
 	var enrollmentExists bool
-	err = db.QueryRow(ctx, 
-		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = $1 AND student_id = $2)", 
+	err = db.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = ? AND student_id = ?)",
 		classID, studentID).Scan(&enrollmentExists)
 	if err != nil {
 		log.Printf("Failed to check enrollment: %v", err)
@@ -381,7 +381,7 @@ func RemoveStudentFromClass(c *gin.Context) {
 	}
 
 	// Remove the enrollment
-	_, err = db.Exec(ctx, "DELETE FROM student_enrollments WHERE class_id = $1 AND student_id = $2", classID, studentID)
+	_, err = db.ExecContext(ctx, "DELETE FROM student_enrollments WHERE class_id = ? AND student_id = ?", classID, studentID)
 	if err != nil {
 		log.Printf("Failed to remove enrollment: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to remove student from class")
@@ -453,11 +453,11 @@ func UpdateStudentEnrollmentStatus(c *gin.Context) {
 	// For teachers, verify they are assigned to the class
 	if user.Role == string(middleware.RoleTeacher) {
 		var exists bool
-		err = db.QueryRow(ctx,
+		err = db.QueryRowContext(ctx,
 			`SELECT EXISTS(
-				SELECT 1 FROM class_teachers ct 
-				JOIN teachers t ON ct.teacher_id = t.id 
-				WHERE ct.class_id = $1 AND t.user_id = $2
+				SELECT 1 FROM class_teachers ct
+				JOIN teachers t ON ct.teacher_id = t.id
+				WHERE ct.class_id = ? AND t.user_id = ?
 			)`, classID, user.ID).Scan(&exists)
 		if err != nil {
 			log.Printf("Failed to check teacher assignment: %v", err)
@@ -473,8 +473,8 @@ func UpdateStudentEnrollmentStatus(c *gin.Context) {
 
 	// Check if enrollment exists
 	var enrollmentExists bool
-	err = db.QueryRow(ctx, 
-		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = $1 AND student_id = $2)", 
+	err = db.QueryRowContext(ctx,
+		"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = ? AND student_id = ?)",
 		classID, studentID).Scan(&enrollmentExists)
 	if err != nil {
 		log.Printf("Failed to check enrollment: %v", err)
@@ -489,10 +489,10 @@ func UpdateStudentEnrollmentStatus(c *gin.Context) {
 
 	// Update the enrollment status
 	now := time.Now()
-	_, err = db.Exec(ctx,
-		`UPDATE student_enrollments 
-		 SET status = $1, created_at = $2  -- Using created_at to store the last updated time
-		 WHERE class_id = $3 AND student_id = $4`,
+	_, err = db.ExecContext(ctx,
+		`UPDATE student_enrollments
+		 SET status = ?, created_at = ?  -- Using created_at to store the last updated time
+		 WHERE class_id = ? AND student_id = ?`,
 		req.Status, now, classID, studentID)
 	if err != nil {
 		log.Printf("Failed to update enrollment: %v", err)

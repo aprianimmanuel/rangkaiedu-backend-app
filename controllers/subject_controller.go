@@ -2,13 +2,13 @@ package controllers
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
 	"github.com/aprianimmanuel/rangkaiedu-backend/models"
 )
@@ -55,8 +55,8 @@ func CreateSubject(c *gin.Context) {
 		defer db.Close()
 
 		var teacherSchoolID string
-		err = db.QueryRow(context.Background(), 
-			"SELECT school_id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherSchoolID)
+		err = db.QueryRowContext(context.Background(),
+			"SELECT school_id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherSchoolID)
 		if err != nil {
 			log.Printf("Failed to get teacher school: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher school")
@@ -86,9 +86,9 @@ func CreateSubject(c *gin.Context) {
 	now := time.Now()
 
 	// Insert the subject
-	_, err = db.Exec(ctx,
+	_, err = db.ExecContext(ctx,
 		`INSERT INTO subjects (id, school_id, name, code, description, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		subjectID, req.SchoolID, req.Name, req.Code, req.Description, now, now)
 	if err != nil {
 		log.Printf("Failed to create subject: %v", err)
@@ -148,26 +148,26 @@ func GetAllSubjects(c *gin.Context) {
 	// For teachers, only show subjects from their school
 	if user.Role == string(middleware.RoleTeacher) {
 		var teacherSchoolID string
-		err = db.QueryRow(ctx, 
-			"SELECT school_id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherSchoolID)
+		err = db.QueryRowContext(ctx,
+			"SELECT school_id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherSchoolID)
 		if err != nil {
 			log.Printf("Failed to get teacher school: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher school")
 			return
 		}
 
-		query += " AND school_id = $" + string(rune(argIndex+'0'))
+		query += " AND school_id = ?"
 		args = append(args, teacherSchoolID)
 		argIndex++
 	} else if schoolID != "" {
 		// For admins, filter by school_id if provided
-		query += " AND school_id = $" + string(rune(argIndex+'0'))
+		query += " AND school_id = ?"
 		args = append(args, schoolID)
 		argIndex++
 	}
 
 	// Execute query
-	rows, err := db.Query(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		log.Printf("Failed to query subjects: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve subjects")
@@ -239,11 +239,11 @@ func GetSubjectByID(c *gin.Context) {
 	defer cancel()
 
 	var subject models.Subject
-	err = db.QueryRow(ctx,
-		"SELECT id, school_id, name, code, description, created_at, updated_at FROM subjects WHERE id = $1",
+	err = db.QueryRowContext(ctx,
+		"SELECT id, school_id, name, code, description, created_at, updated_at FROM subjects WHERE id = ?",
 		subjectID).Scan(&subject.ID, &subject.SchoolID, &subject.Name, &subject.Code, &subject.Description, &subject.CreatedAt, &subject.UpdatedAt)
 	
-	if err == pgx.ErrNoRows {
+	if err == sql.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Subject not found")
 		return
 	}
@@ -257,8 +257,8 @@ func GetSubjectByID(c *gin.Context) {
 	// For teachers, verify they belong to the same school as the subject
 	if user.Role == string(middleware.RoleTeacher) {
 		var teacherSchoolID string
-		err = db.QueryRow(ctx, 
-			"SELECT school_id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherSchoolID)
+		err = db.QueryRowContext(ctx,
+			"SELECT school_id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherSchoolID)
 		if err != nil {
 			log.Printf("Failed to get teacher school: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher school")
@@ -322,11 +322,11 @@ func UpdateSubject(c *gin.Context) {
 	defer cancel()
 
 	var existingSubject models.Subject
-	err = db.QueryRow(ctx,
-		"SELECT id, school_id, name, code, description, created_at, updated_at FROM subjects WHERE id = $1",
+	err = db.QueryRowContext(ctx,
+		"SELECT id, school_id, name, code, description, created_at, updated_at FROM subjects WHERE id = ?",
 		subjectID).Scan(&existingSubject.ID, &existingSubject.SchoolID, &existingSubject.Name, &existingSubject.Code, &existingSubject.Description, &existingSubject.CreatedAt, &existingSubject.UpdatedAt)
 	
-	if err == pgx.ErrNoRows {
+	if err == sql.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Subject not found")
 		return
 	}
@@ -340,8 +340,8 @@ func UpdateSubject(c *gin.Context) {
 	// For teachers, verify they belong to the same school as the subject
 	if user.Role == string(middleware.RoleTeacher) {
 		var teacherSchoolID string
-		err = db.QueryRow(ctx, 
-			"SELECT school_id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherSchoolID)
+		err = db.QueryRowContext(ctx,
+			"SELECT school_id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherSchoolID)
 		if err != nil {
 			log.Printf("Failed to get teacher school: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher school")
@@ -362,10 +362,10 @@ func UpdateSubject(c *gin.Context) {
 
 	// Update the subject
 	now := time.Now()
-	_, err = db.Exec(ctx,
-		`UPDATE subjects 
-		 SET school_id = $1, name = $2, code = $3, description = $4, updated_at = $5
-		 WHERE id = $6`,
+	_, err = db.ExecContext(ctx,
+		`UPDATE subjects
+		 SET school_id = ?, name = ?, code = ?, description = ?, updated_at = ?
+		 WHERE id = ?`,
 		req.SchoolID, req.Name, req.Code, req.Description, now, subjectID)
 	if err != nil {
 		log.Printf("Failed to update subject: %v", err)
@@ -429,7 +429,7 @@ func DeleteSubject(c *gin.Context) {
 
 	// Check if subject exists
 	var exists bool
-	err = db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM subjects WHERE id = $1)", subjectID).Scan(&exists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM subjects WHERE id = ?)", subjectID).Scan(&exists)
 	if err != nil {
 		log.Printf("Failed to check subject existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check subject")
@@ -442,7 +442,7 @@ func DeleteSubject(c *gin.Context) {
 	}
 
 	// Delete the subject (will cascade to related tables)
-	_, err = db.Exec(ctx, "DELETE FROM subjects WHERE id = $1", subjectID)
+	_, err = db.ExecContext(ctx, "DELETE FROM subjects WHERE id = ?", subjectID)
 	if err != nil {
 		log.Printf("Failed to delete subject: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to delete subject")
