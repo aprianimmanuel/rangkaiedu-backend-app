@@ -63,19 +63,13 @@ func RegisterHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
+	// Use the global database connection pool
+	pool, err := GetDBConnection()
 	if err != nil {
-		log.Printf("Failed to parse database config: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse database config"})
-		return
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
+		log.Printf("Failed to get database connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to database"})
 		return
 	}
-	defer pool.Close()
 	log.Printf("Successfully connected to database")
 
 	// Check for duplicate email
@@ -192,19 +186,13 @@ func SendOTPHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
+	// Use the global database connection pool
+	pool, err := GetDBConnection()
 	if err != nil {
-		log.Printf("Failed to parse database config: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse database config"})
-		return
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
+		log.Printf("Failed to get database connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to database"})
 		return
 	}
-	defer pool.Close()
 
 	// Check if user exists for the identifier
 	var exists bool
@@ -267,19 +255,13 @@ func VerifyOTPHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
+	// Use the global database connection pool
+	pool, err := GetDBConnection()
 	if err != nil {
-		log.Printf("Failed to parse database config: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse database config"})
-		return
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
+		log.Printf("Failed to get database connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to database"})
 		return
 	}
-	defer pool.Close()
 
 	// Verify OTP
 	valid, err := otp.VerifyAndDeleteOTP(ctx, pool, req.Identifier, req.OTP)
@@ -361,19 +343,13 @@ func LoginHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
+	// Use the global database connection pool
+	pool, err := GetDBConnection()
 	if err != nil {
-		log.Printf("Failed to parse database config: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse database config"})
-		return
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
+		log.Printf("Failed to get database connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to database"})
 		return
 	}
-	defer pool.Close()
 
 	// Query user by email to get phone number for consistent claims
 	var userID, email, phone, role, passwordHash string
