@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/backend-app/middleware"
-	"github.com/aprianimmanuel/backend-app/pkg/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
 // GetDBConnection returns a database connection pool

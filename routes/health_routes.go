@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/aprianimmanuel/backend-app/controllers"
+	"github.com/aprianimmanuel/rangkaiedu-backend/controllers"
 )
 
 // SetupHealthRoutes sets up all health check related routes

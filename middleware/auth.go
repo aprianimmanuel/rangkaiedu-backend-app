@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 )
 
 // UserContext represents the user information stored in the context

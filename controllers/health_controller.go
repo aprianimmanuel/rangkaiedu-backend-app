@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/backend-app/pkg/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
 // HealthCheckResponse represents the response structure for health check endpoint

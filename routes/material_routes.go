@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/aprianimmanuel/backend-app/controllers"
-	"github.com/aprianimmanuel/backend-app/middleware"
+	"github.com/aprianimmanuel/rangkaiedu-backend/controllers"
+	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
 )
 
 // SetupMaterialRoutes sets up the material management routes
