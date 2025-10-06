@@ -14,10 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/backend-app/config"
-	"github.com/aprianimmanuel/backend-app/controllers"
-	"github.com/aprianimmanuel/backend-app/pkg/db"
-	"github.com/aprianimmanuel/backend-app/utils/password"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/controllers"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/password"
 )
 
 func TestMain(m *testing.M) {

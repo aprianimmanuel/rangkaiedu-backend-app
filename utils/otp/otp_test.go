@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aprianimmanuel/backend-app/config"
-	"github.com/aprianimmanuel/backend-app/pkg/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"

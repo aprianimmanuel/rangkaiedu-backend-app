@@ -4,8 +4,9 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/aprianimmanuel/backend-app/pkg/db"
-	"github.com/aprianimmanuel/backend-app/routes"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/routes"
 )
 
 func main() {
