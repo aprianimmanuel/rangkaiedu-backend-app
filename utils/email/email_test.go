@@ -3,7 +3,7 @@ package email
 import (
 	"testing"
 
-	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -9,8 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/aprianimmanuel/backend-app/middleware"
-	"github.com/aprianimmanuel/backend-app/models"
+	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
+	"github.com/aprianimmanuel/rangkaiedu-backend/models"
 )
 
 // SubjectRequest represents the request body for creating/updating a subject

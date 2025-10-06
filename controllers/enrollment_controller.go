@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/aprianimmanuel/backend-app/middleware"
-	"github.com/aprianimmanuel/backend-app/models"
+	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
+	"github.com/aprianimmanuel/rangkaiedu-backend/models"
 )
 
 // StudentEnrollmentRequest represents the request body for adding a student to a class

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/smtp"
 
-	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 )
 
 // SendOTPEmail sends an email containing the OTP code to the specified recipient.

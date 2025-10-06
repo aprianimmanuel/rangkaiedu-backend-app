@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 )
 
 func main() {

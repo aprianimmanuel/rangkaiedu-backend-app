@@ -6,7 +6,7 @@ package sms
 import (
 	"fmt"
 
-	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 	"github.com/twilio/twilio-go"
 	openapi "github.com/twilio/twilio-go/rest/api/v2010"
 )

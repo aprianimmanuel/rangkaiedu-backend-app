@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/aprianimmanuel/backend-app/pkg/db"
+	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
 )
 
 func main() {
