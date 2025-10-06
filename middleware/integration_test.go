@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/aprianimmanuel/backend-app/config"
 	"github.com/aprianimmanuel/backend-app/controllers"
+	"github.com/aprianimmanuel/backend-app/pkg/db"
 )
 
 // TestMain sets up the test environment
@@ -29,8 +30,16 @@ func TestMain(m *testing.M) {
 	os.Setenv("DB_PASSWORD", "12d1q23wxm19wkc1fsdcq23")
 	os.Setenv("DB_SSLMODE", "disable")
 
+	// Initialize the database connection pool
+	if err := db.Init(); err != nil {
+		panic(err)
+	}
+
 	// Run tests
 	code := m.Run()
+
+	// Close the database connection pool
+	db.Close()
 
 	// Clean up
 	os.Unsetenv("DB_NAME")
@@ -107,16 +116,10 @@ func setupTestRouter() *gin.Engine {
 }
 
 func createTestPool(t *testing.T) *pgxpool.Pool {
-	cfg := config.LoadTest()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
-	if err != nil {
-		t.Fatalf("Failed to parse database config: %v", err)
-	}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		t.Fatalf("Failed to create test pool: %v", err)
+	// Use the global database connection pool
+	pool := db.GetDB()
+	if pool == nil {
+		t.Fatalf("Database pool is not initialized")
 	}
 	return pool
 }

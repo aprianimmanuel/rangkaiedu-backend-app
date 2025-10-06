@@ -3,39 +3,20 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"log"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/aprianimmanuel/backend-app/config"
 	"github.com/aprianimmanuel/backend-app/middleware"
+	"github.com/aprianimmanuel/backend-app/pkg/db"
 )
 
 // GetDBConnection returns a database connection pool
 func GetDBConnection() (*pgxpool.Pool, error) {
-	cfg := config.Load()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	poolConfig, err := pgxpool.ParseConfig(cfg.DSN())
-	if err != nil {
-		log.Printf("Failed to parse database config: %v", err)
-		return nil, fmt.Errorf("failed to parse database config: %w", err)
+	// Use the global database connection pool
+	pool := db.GetDB()
+	if pool == nil {
+		return nil, fmt.Errorf("database pool is not initialized")
 	}
-	
-	// Configure pool settings
-	poolConfig.MaxConns = 20
-	poolConfig.MinConns = 4
-	poolConfig.MaxConnLifetime = 5 * time.Minute
-	poolConfig.HealthCheckPeriod = 1 * time.Minute
-
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		log.Printf("Failed to connect to database: %v", err)
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
 	return pool, nil
 }
 

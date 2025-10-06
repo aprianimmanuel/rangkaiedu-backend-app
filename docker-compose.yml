@@ -5,18 +5,18 @@ services:
     container_name: rangkai-edu-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-rangkaiedu_dev}
+      POSTGRES_USER: ${DB_USER:-rangkaiedudev1}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rangkaiedudev1}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT:-5432}:5432"
     networks:
-      - rangkai-network
+      - default
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-rangkaiedu_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,12 +28,12 @@ services:
     restart: unless-stopped
     environment:
       DB_HOST: db
-      DB_TEST_NAME: ${DB_TEST_NAME}
-      BACKEND_PORT: ${BACKEND_PORT}
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_TEST_NAME: ${DB_TEST_NAME:-rangkaiedu_test}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-rangkaiedu_dev}
+      DB_USER: ${DB_USER:-rangkaiedudev1}
+      DB_PASSWORD: ${DB_PASSWORD:-rangkaiedudev1}
       DB_SSLMODE: disable
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
       OSS_BUCKET_NAME: ${OSS_BUCKET_NAME}
@@ -42,9 +42,9 @@ services:
       OSS_REGION: ${OSS_REGION}
       OSS_ENDPOINT: ${OSS_ENDPOINT}
     ports:
-      - "${BACKEND_PORT}:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     networks:
-      - rangkai-network
+      - default
     depends_on:
       db:
         condition: service_healthy
@@ -64,14 +64,14 @@ services:
     container_name: rangkai-edu-test
     environment:
       DB_HOST: db
-      DB_PORT: ${DB_PORT}
-      DB_NAME: ${DB_TEST_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_TEST_NAME:-rangkaiedu_test}
+      DB_USER: ${DB_USER:-rangkaiedudev1}
+      DB_PASSWORD: ${DB_PASSWORD:-rangkaiedudev1}
       DB_SSLMODE: disable
-      BACKEND_PORT: ${BACKEND_PORT}
+      BACKEND_PORT: ${BACKEND_PORT:-8080}
     networks:
-      - rangkai-network
+      - default
     depends_on:
       db:
         condition: service_healthy
@@ -87,7 +87,7 @@ services:
     ports:
       - "3000:80"
     networks:
-      - rangkai-network
+      - default
     depends_on:
       - backend
     volumes:
@@ -99,8 +99,3 @@ services:
 volumes:
   postgres_data:
     driver: local
-
-# Networks for service communication
-networks:
-  rangkai-network:
-    driver: bridge

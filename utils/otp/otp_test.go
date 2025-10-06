@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aprianimmanuel/backend-app/config"
+	"github.com/aprianimmanuel/backend-app/pkg/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -23,8 +24,16 @@ func TestMain(m *testing.M) {
 	os.Setenv("DB_PASSWORD", "password")
 	os.Setenv("DB_SSLMODE", "disable")
 
+	// Initialize the database connection pool
+	if err := db.Init(); err != nil {
+		panic(err)
+	}
+
 	// Run tests
 	code := m.Run()
+
+	// Close the database connection pool
+	db.Close()
 
 	// Optional: unset env vars after tests
 	os.Unsetenv("DB_NAME")
@@ -38,12 +47,10 @@ func TestMain(m *testing.M) {
 }
 
 func createTestPool(t *testing.T) *pgxpool.Pool {
-	cfg := config.Load()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	pool, err := pgxpool.NewWithConfig(ctx, pgxpool.ParseConfig(cfg.DSN()))
-	if err != nil {
-		t.Fatalf("Failed to create test pool: %v", err)
+	// Use the global database connection pool
+	pool := db.GetDB()
+	if pool == nil {
+		t.Fatalf("Database pool is not initialized")
 	}
 	return pool
 }

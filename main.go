@@ -1,11 +1,20 @@
 package main
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
+	"github.com/aprianimmanuel/backend-app/pkg/db"
 	"github.com/aprianimmanuel/backend-app/routes"
 )
 
 func main() {
+	// Initialize the database connection pool
+	if err := db.Init(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
 	r := gin.Default()
 
 	// Welcome route
@@ -26,6 +35,9 @@ func main() {
 
 	// Setup material routes
 	routes.SetupMaterialRoutes(r)
+
+	// Setup health check routes
+	routes.SetupHealthRoutes(r)
 
 	// Run the server
 	r.Run(":8080")

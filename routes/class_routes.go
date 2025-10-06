@@ -16,17 +16,17 @@ func SetupClassRoutes(r *gin.Engine) {
 		// Apply role-based access control
 		classes.Use(middleware.RolesRequired(middleware.RoleTeacher, middleware.RoleAdmin))
 
-		// CRUD operations for classes
-		classes.POST("", controllers.CreateClass)
-		classes.GET("", controllers.GetAllClasses)
-		classes.GET("/:id", controllers.GetClassByID)
-		classes.PUT("/:id", controllers.UpdateClass)
-		classes.DELETE("/:id", middleware.RoleRequired(middleware.RoleAdmin), controllers.DeleteClass)
-
-		// Class roster management
+		// Class roster management (must come before single class routes to avoid conflicts)
 		classes.POST("/:class_id/students", controllers.AddStudentToClass)
 		classes.GET("/:class_id/students", controllers.GetClassRoster)
 		classes.DELETE("/:class_id/students/:student_id", controllers.RemoveStudentFromClass)
 		classes.PUT("/:class_id/students/:student_id", controllers.UpdateStudentEnrollmentStatus)
+
+		// CRUD operations for classes
+		classes.POST("", controllers.CreateClass)
+		classes.GET("", controllers.GetAllClasses)
+		classes.GET("/by-id/:classId", controllers.GetClassByID)
+		classes.PUT("/by-id/:classId", controllers.UpdateClass)
+		classes.DELETE("/by-id/:classId", middleware.RoleRequired(middleware.RoleAdmin), controllers.DeleteClass)
 	}
 }
