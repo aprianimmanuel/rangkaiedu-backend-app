@@ -39,9 +39,6 @@ cover.out
 docs/
 !docs/README.md
 
-# Task list files
-task_list/
-
 # Examples
 examples/
 

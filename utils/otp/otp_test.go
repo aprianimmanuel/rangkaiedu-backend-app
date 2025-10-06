@@ -45,7 +45,7 @@ func cleanupOTP(t *testing.T, db *sql.DB, identifier string) {
 	if db == nil {
 		return
 	}
-	_, err := db.ExecContext(context.Background(), "DELETE FROM otps WHERE identifier = ?", identifier)
+	_, err := db.ExecContext(context.Background(), "DELETE FROM otps WHERE identifier = $1", identifier)
 	if err != nil {
 		t.Logf("Cleanup warning for OTP %s: %v", identifier, err)
 	}
@@ -88,7 +88,7 @@ func TestSaveOTPAndVerifyAndDeleteOTP(t *testing.T) {
 
 	// Test expiry (insert with past expiry)
 	pastExpiry := time.Now().Add(-time.Hour)
-	_, err = dbConn.ExecContext(ctx, "INSERT INTO otps (identifier, otp, expiry) VALUES (?, ?, ?)", identifier, "654321", pastExpiry)
+	_, err = dbConn.ExecContext(ctx, "INSERT INTO otps (identifier, otp, expiry) VALUES ($1, $2, $3)", identifier, "654321", pastExpiry)
 	require.NoError(t, err)
 
 	valid, err = VerifyAndDeleteOTP(ctx, dbConn, identifier, "654321")

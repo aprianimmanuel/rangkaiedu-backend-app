@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 	"github.com/aprianimmanuel/rangkaiedu-backend/middleware"
 	"github.com/aprianimmanuel/rangkaiedu-backend/models"
@@ -24,6 +26,27 @@ type MaterialRequest struct {
 	Title       string `form:"title" json:"title" binding:"required,max=255"`
 	Description string `form:"description" json:"description" binding:"max=1000"`
 	Visibility  string `form:"visibility" json:"visibility" binding:"oneof=public private class_only"`
+}
+
+// GetCurrentUser retrieves the current user from the context
+func GetCurrentUser(c *gin.Context) (*models.User, error) {
+	user, exists := c.Get("user")
+	if !exists {
+		return nil, fmt.Errorf("user not found in context")
+	}
+	return user.(*models.User), nil
+}
+
+// SendErrorResponse sends a standardized error response
+func SendErrorResponse(c *gin.Context, statusCode int, message string) {
+	c.JSON(statusCode, gin.H{"error": message})
+}
+
+// GetDBConnection returns a database connection
+func GetDBConnection() (*sql.DB, error) {
+	// This should be replaced with actual database connection logic
+	// For now, return a placeholder
+	return nil, fmt.Errorf("database connection not implemented")
 }
 
 // CreateMaterial handles uploading a new teaching material
@@ -112,7 +135,7 @@ func CreateMaterial(c *gin.Context) {
 			`SELECT EXISTS(
 				SELECT 1 FROM class_teachers ct
 				JOIN teachers t ON ct.teacher_id = t.id
-				WHERE ct.class_id = ? AND t.user_id = ?
+				WHERE ct.class_id = $1 AND t.user_id = $2
 			)`, classID, user.ID).Scan(&exists)
 		if err != nil {
 			log.Printf("Failed to check teacher assignment: %v", err)
@@ -128,7 +151,7 @@ func CreateMaterial(c *gin.Context) {
 
 	// Check if class exists
 	var classExists bool
-	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?)", classID).Scan(&classExists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM classes WHERE id = $1)", classID).Scan(&classExists)
 	if err != nil {
 		log.Printf("Failed to check class existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check class")
@@ -142,7 +165,7 @@ func CreateMaterial(c *gin.Context) {
 
 	// Check if subject exists
 	var subjectExists bool
-	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM subjects WHERE id = ?)", subjectID).Scan(&subjectExists)
+	err = db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM subjects WHERE id = $1)", subjectID).Scan(&subjectExists)
 	if err != nil {
 		log.Printf("Failed to check subject existence: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to check subject")
@@ -157,7 +180,7 @@ func CreateMaterial(c *gin.Context) {
 	// Get teacher ID for the material
 	var teacherID string
 	if user.Role == string(middleware.RoleTeacher) {
-		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherID)
+		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherID)
 		if err != nil {
 			log.Printf("Failed to get teacher ID: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to get teacher information")
@@ -191,9 +214,9 @@ func CreateMaterial(c *gin.Context) {
 	materialID := uuid.New().String()
 	now := time.Now()
 
-	_, err = db.ExecContext(ctx,
+	_, err = db.Exec(ctx,
 		`INSERT INTO materials (id, class_id, subject_id, teacher_id, title, description, file_name, file_path, file_type, file_size, visibility, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		materialID, classID, subjectID, teacherID, title, description, fileMetadata.FileName,
 		fileMetadata.FilePath, fileMetadata.FileType, fileMetadata.FileSize,
 		visibility, now, now)
@@ -259,25 +282,25 @@ func GetAllMaterials(c *gin.Context) {
 
 	// Add filters based on user role and query parameters
 	if classID != "" {
-		query += " AND class_id = ?"
+		query += " AND class_id = $" + fmt.Sprintf("%d", argIndex)
 		args = append(args, classID)
 		argIndex++
 	}
 
 	if subjectID != "" {
-		query += " AND subject_id = ?"
+		query += " AND subject_id = $" + fmt.Sprintf("%d", argIndex)
 		args = append(args, subjectID)
 		argIndex++
 	}
 
 	if teacherID != "" {
-		query += " AND teacher_id = ?"
+		query += " AND teacher_id = $" + fmt.Sprintf("%d", argIndex)
 		args = append(args, teacherID)
 		argIndex++
 	}
 
 	if visibility != "" {
-		query += " AND visibility = ?"
+		query += " AND visibility = $" + fmt.Sprintf("%d", argIndex)
 		args = append(args, visibility)
 		argIndex++
 	}
@@ -286,7 +309,7 @@ func GetAllMaterials(c *gin.Context) {
 	if user.Role == string(middleware.RoleStudent) {
 		// Get student's class IDs
 		rows, err := db.QueryContext(ctx,
-			"SELECT class_id FROM student_enrollments WHERE student_id = (SELECT id FROM students WHERE user_id = ?)", user.ID)
+			"SELECT class_id FROM student_enrollments WHERE student_id = (SELECT id FROM students WHERE user_id = $1)", user.ID)
 		if err != nil {
 			log.Printf("Failed to get student classes: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to retrieve materials")
@@ -308,12 +331,8 @@ func GetAllMaterials(c *gin.Context) {
 		// Build visibility filter for students
 		if len(classIDs) > 0 {
 			// Students can see public materials and materials for their classes
-			// Note: The ANY operator syntax is different in MySQL/PostgreSQL, so we'll need to handle this differently
-			// For now, we'll use a simple approach that works with both
-			query += " AND (visibility = 'public' OR (visibility = 'class_only' AND class_id IN (" + generatePlaceholders(len(classIDs)) + ")))"
-			for _, classID := range classIDs {
-				args = append(args, classID)
-			}
+			query += " AND (visibility = 'public' OR (visibility = 'class_only' AND class_id = ANY($" + fmt.Sprintf("%d", argIndex) + ")))"
+			args = append(args, classIDs)
 			argIndex++
 		} else {
 			// Students with no classes can only see public materials
@@ -321,7 +340,7 @@ func GetAllMaterials(c *gin.Context) {
 		}
 	} else if user.Role == string(middleware.RoleTeacher) {
 		// Teachers can see public materials and materials for classes they teach
-		query += " AND (visibility = 'public' OR teacher_id = (SELECT id FROM teachers WHERE user_id = ?))"
+		query += " AND (visibility = 'public' OR teacher_id = (SELECT id FROM teachers WHERE user_id = $" + fmt.Sprintf("%d", argIndex) + "))"
 		args = append(args, user.ID)
 		argIndex++
 	}
@@ -361,19 +380,6 @@ func GetAllMaterials(c *gin.Context) {
 	c.JSON(http.StatusOK, materials)
 }
 
-// generatePlaceholders generates a string of placeholders for SQL queries
-func generatePlaceholders(n int) string {
-	if n <= 0 {
-		return ""
-	}
-	
-	placeholders := make([]string, n)
-	for i := 0; i < n; i++ {
-		placeholders[i] = "?"
-	}
-	
-	return strings.Join(placeholders, ",")
-}
 
 // GetMaterialByID handles retrieving a specific material by ID
 func GetMaterialByID(c *gin.Context) {
@@ -411,12 +417,12 @@ func GetMaterialByID(c *gin.Context) {
 
 	var material models.Material
 	err = db.QueryRowContext(ctx,
-		"SELECT id, class_id, subject_id, teacher_id, title, description, file_name, file_path, file_type, file_size, visibility, created_at, updated_at FROM materials WHERE id = ?",
+		"SELECT id, class_id, subject_id, teacher_id, title, description, file_name, file_path, file_type, file_size, visibility, created_at, updated_at FROM materials WHERE id = $1",
 		materialID).Scan(&material.ID, &material.ClassID, &material.SubjectID, &material.TeacherID,
 		&material.Title, &material.Description, &material.FileName, &material.FilePath,
 		&material.FileType, &material.FileSize, &material.Visibility, &material.CreatedAt, &material.UpdatedAt)
 	
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Material not found")
 		return
 	}
@@ -447,7 +453,7 @@ func GetMaterialByID(c *gin.Context) {
 			// Check if student is enrolled in the class
 			var enrolled bool
 			err = db.QueryRowContext(ctx,
-				"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = ? AND student_id = (SELECT id FROM students WHERE user_id = ?))",
+				"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = $1 AND student_id = (SELECT id FROM students WHERE user_id = $2))",
 				material.ClassID, user.ID).Scan(&enrolled)
 			if err != nil {
 				log.Printf("Failed to check enrollment: %v", err)
@@ -521,12 +527,12 @@ func UpdateMaterial(c *gin.Context) {
 
 	var existingMaterial models.Material
 	err = db.QueryRowContext(ctx,
-		"SELECT id, class_id, subject_id, teacher_id, title, description, file_name, file_path, file_type, file_size, visibility, created_at, updated_at FROM materials WHERE id = ?",
+		"SELECT id, class_id, subject_id, teacher_id, title, description, file_name, file_path, file_type, file_size, visibility, created_at, updated_at FROM materials WHERE id = $1",
 		materialID).Scan(&existingMaterial.ID, &existingMaterial.ClassID, &existingMaterial.SubjectID, &existingMaterial.TeacherID,
 		&existingMaterial.Title, &existingMaterial.Description, &existingMaterial.FileName, &existingMaterial.FilePath,
 		&existingMaterial.FileType, &existingMaterial.FileSize, &existingMaterial.Visibility, &existingMaterial.CreatedAt, &existingMaterial.UpdatedAt)
 	
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Material not found")
 		return
 	}
@@ -540,7 +546,7 @@ func UpdateMaterial(c *gin.Context) {
 	// For teachers, verify they own the material
 	if user.Role == string(middleware.RoleTeacher) {
 		var teacherID string
-		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherID)
+		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherID)
 		if err != nil {
 			log.Printf("Failed to get teacher ID: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher identity")
@@ -555,10 +561,10 @@ func UpdateMaterial(c *gin.Context) {
 
 	// Update the material
 	now := time.Now()
-	_, err = db.ExecContext(ctx,
+	_, err = db.Exec(ctx,
 		`UPDATE materials
-		 SET title = ?, description = ?, visibility = ?, updated_at = ?
-		 WHERE id = ?`,
+		 SET title = $1, description = $2, visibility = $3, updated_at = $4
+		 WHERE id = $5`,
 		req.Title, req.Description, req.Visibility, now, materialID)
 	if err != nil {
 		log.Printf("Failed to update material: %v", err)
@@ -632,9 +638,9 @@ func DeleteMaterial(c *gin.Context) {
 	// Get material to check ownership and get file path
 	var material models.Material
 	err = db.QueryRowContext(ctx,
-		"SELECT id, teacher_id, file_path FROM materials WHERE id = ?", materialID).Scan(&material.ID, &material.TeacherID, &material.FilePath)
+		"SELECT id, teacher_id, file_path FROM materials WHERE id = $1", materialID).Scan(&material.ID, &material.TeacherID, &material.FilePath)
 	
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Material not found")
 		return
 	}
@@ -648,7 +654,7 @@ func DeleteMaterial(c *gin.Context) {
 	// For teachers, verify they own the material
 	if user.Role == string(middleware.RoleTeacher) {
 		var teacherID string
-		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherID)
+		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherID)
 		if err != nil {
 			log.Printf("Failed to get teacher ID: %v", err)
 			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher identity")
@@ -662,7 +668,7 @@ func DeleteMaterial(c *gin.Context) {
 	}
 
 	// Delete the material from database
-	_, err = db.ExecContext(ctx, "DELETE FROM materials WHERE id = ?", materialID)
+	_, err = db.Exec(ctx, "DELETE FROM materials WHERE id = $1", materialID)
 	if err != nil {
 		log.Printf("Failed to delete material: %v", err)
 		SendErrorResponse(c, http.StatusInternalServerError, "Failed to delete material")
@@ -724,11 +730,11 @@ func DownloadMaterial(c *gin.Context) {
 
 	var material models.Material
 	err = db.QueryRowContext(ctx,
-		"SELECT id, class_id, teacher_id, title, file_name, file_path, file_type, visibility FROM materials WHERE id = ?",
+		"SELECT id, class_id, teacher_id, title, file_name, file_path, file_type, visibility FROM materials WHERE id = $1",
 		materialID).Scan(&material.ID, &material.ClassID, &material.TeacherID, &material.Title,
 		&material.FileName, &material.FilePath, &material.FileType, &material.Visibility)
 	
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		SendErrorResponse(c, http.StatusNotFound, "Material not found")
 		return
 	}
@@ -747,36 +753,36 @@ func DownloadMaterial(c *gin.Context) {
 		// Admins can access all materials
 		canAccess = true
 	case string(middleware.RoleTeacher):
-		// Teachers can access public materials and materials they own
-		if material.Visibility == "public" {
-			canAccess = true
-		} else {
-			var teacherID string
-			err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = ?", user.ID).Scan(&teacherID)
-			if err != nil {
-				log.Printf("Failed to get teacher ID: %v", err)
-				SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher identity")
-				return
-			}
-			canAccess = (teacherID == material.TeacherID)
+	// Teachers can access public materials and materials they own
+	if material.Visibility == "public" {
+		canAccess = true
+	} else {
+		var teacherID string
+		err = db.QueryRowContext(ctx, "SELECT id FROM teachers WHERE user_id = $1", user.ID).Scan(&teacherID)
+		if err != nil {
+			log.Printf("Failed to get teacher ID: %v", err)
+			SendErrorResponse(c, http.StatusInternalServerError, "Failed to verify teacher identity")
+			return
 		}
-	case string(middleware.RoleStudent):
-		// Students can access public materials and materials for their classes
-		if material.Visibility == "public" {
-			canAccess = true
-		} else if material.Visibility == "class_only" {
-			// Check if student is enrolled in the class
-			var enrolled bool
-			err = db.QueryRowContext(ctx,
-				"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = ? AND student_id = (SELECT id FROM students WHERE user_id = ?))",
-				material.ClassID, user.ID).Scan(&enrolled)
-			if err != nil {
-				log.Printf("Failed to check enrollment: %v", err)
-				SendErrorResponse(c, http.StatusInternalServerError, "Failed to check access permissions")
-				return
-			}
-			canAccess = enrolled
+		canAccess = (teacherID == material.TeacherID)
+	}
+case string(middleware.RoleStudent):
+	// Students can access public materials and materials for their classes
+	if material.Visibility == "public" {
+		canAccess = true
+	} else if material.Visibility == "class_only" {
+		// Check if student is enrolled in the class
+		var enrolled bool
+		err = db.QueryRowContext(ctx,
+			"SELECT EXISTS(SELECT 1 FROM student_enrollments WHERE class_id = $1 AND student_id = (SELECT id FROM students WHERE user_id = $2))",
+			material.ClassID, user.ID).Scan(&enrolled)
+		if err != nil {
+			log.Printf("Failed to check enrollment: %v", err)
+			SendErrorResponse(c, http.StatusInternalServerError, "Failed to check access permissions")
+			return
 		}
+		canAccess = enrolled
+	}
 	default:
 		// Other roles can only access public materials
 		canAccess = material.Visibility == "public"

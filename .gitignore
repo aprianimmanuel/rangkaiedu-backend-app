@@ -49,5 +49,4 @@ terraform/
 testOutput/
 utils/file/
 utils/storage/
-task_list/material_controller.go
 git_pat_token.txt

@@ -28,8 +28,5 @@ docker-compose.yml @aprianimmanuel
 # GitHub Actions workflows
 .github/workflows/ @aprianimmanuel
 
-# Task lists
-task_list/ @aprianimmanuel
-
 # Examples
 examples/ @aprianimmanuel
