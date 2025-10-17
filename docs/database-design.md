@@ -3,7 +3,7 @@
 ## Overview
 This document outlines the comprehensive database schema design for the Rangkai Edu application. It includes entity relationship models, detailed table schemas, indexing strategies, performance considerations, and extensibility planning. The design uses PostgreSQL as the database technology and follows best practices for educational platforms with user authentication, school management, and role-based access.
 
-The schema supports core entities: users (with roles: admin, teacher, student, parent), schools, classes, subjects, authentication (auth_tokens, otp_verifications, oauth_providers), and junction tables for many-to-many relationships (e.g., students to classes via enrollment, teachers to classes/subjects).
+The schema supports core entities: users (with roles: admin, teacher, student, parent), schools, classes, subjects, authentication (auth_tokens, otps, oauth_providers), and junction tables for many-to-many relationships (e.g., students to classes via enrollment, teachers to classes/subjects).
 
 This document has been updated to complete Phase 1 of T1.2 Database Implementation, including entity modeling, table definitions, and indexing plans.
 
@@ -18,7 +18,7 @@ This document has been updated to complete Phase 1 of T1.2 Database Implementati
 - **Students**: Users enrolled in classes, linked to parents.
 - **Parents**: Users who oversee students.
 - **Auth Tokens**: Session tokens for authenticated users.
-- **OTP Verifications**: Temporary OTPs for phone-based authentication.
+- **OTPs**: Temporary OTPs for email/phone-based authentication.
 - **OAuth Providers**: Links for social logins (Google, Apple).
 
 ### 1.2 Junction Tables
@@ -29,7 +29,7 @@ This document has been updated to complete Phase 1 of T1.2 Database Implementati
 The relationships follow these cardinalities and constraints:
 
 - **Users to Auth Tokens**: One-to-Many (1:N) - A user can have multiple active tokens, but tokens are user-specific. Foreign key: auth_tokens.user_id REFERENCES users(id) ON DELETE CASCADE (revoke all tokens if user deleted).
-- **Users to OTP Verifications**: One-to-Many (1:N) - Multiple OTP attempts per user/phone. No foreign key to users (phone-based), but role matches user role. Expires after use.
+- **Users to OTPs**: One-to-Many (1:N) - Multiple OTP attempts per user/email/phone. No foreign key to users (identifier-based), but role matches user role. Expires after use.
 - **Users to OAuth Providers**: One-to-One per provider (1:1) - Unique per user-provider combo. Foreign key: oauth_providers.user_id REFERENCES users(id) ON DELETE CASCADE. UNIQUE(user_id, provider).
 - **Users to Teachers/Students/Parents**: One-to-One (1:1) - Role-based extension tables. Foreign key: teachers.user_id REFERENCES users(id) ON DELETE CASCADE, similarly for students and parents.
 - **Schools to Classes**: One-to-Many (1:N) - A school has multiple classes. Foreign key: classes.school_id REFERENCES schools(id) ON DELETE CASCADE (delete classes if school removed).
@@ -75,16 +75,15 @@ CREATE TABLE auth_tokens (
 );
 ```
 
-#### OTP Verifications Table
+#### OTPs Table
 ```sql
-CREATE TABLE otp_verifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR(20) NOT NULL,
-    otp VARCHAR(10) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student', 'parent')),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    verified BOOLEAN DEFAULT FALSE
+CREATE TABLE IF NOT EXISTS otps (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(255) NOT NULL,  -- email or phone number
+    otp VARCHAR(6) NOT NULL,           -- 6-digit OTP code
+    expiry TIMESTAMP NOT NULL,         -- OTP expiry time (e.g., 10 minutes from creation)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(identifier, otp)            -- Prevent duplicate OTPs for same identifier
 );
 ```
 
@@ -212,7 +211,7 @@ CREATE TABLE student_parents (
 ```mermaid
 erDiagram
     USERS ||--o{ AUTH_TOKENS : has
-    USERS ||--o{ OTP_VERIFICATIONS : requests
+    USERS ||--o{ OTPS : requests
     USERS ||--o{ OAUTH_PROVIDERS : authenticates
     USERS ||--|| TEACHERS : extends
     USERS ||--|| STUDENTS : extends
@@ -254,9 +253,8 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX idx_auth_tokens_user_id ON auth_tokens(user_id) WHERE NOT revoked;
 
--- OTP: Quick verification by phone/role
-CREATE INDEX idx_otp_phone_role ON otp_verifications(phone, role);
-CREATE INDEX idx_otp_expires ON otp_verifications(expires_at) WHERE NOT verified;
+-- OTP: Quick verification by identifier/expiry
+CREATE INDEX IF NOT EXISTS idx_otps_identifier_expiry ON otps (identifier, expiry);
 
 -- Schools: Name searches
 CREATE INDEX idx_schools_name ON schools(name);

@@ -291,10 +291,73 @@ Test data should include:
 - Identify untested areas
 - Plan additional tests
 
+## Test Execution Status
+
+⚠️ **CRITICAL FAILURE**: Integration tests are currently failing due to build issues in the CI pipeline.
+
+### Identified Issues
+1. **Frontend Build Failure**: JWT decode library import error
+   - Error: `"default" is not exported by "node_modules/jwt-decode/build/esm/index.js"`
+   - Impact: Frontend CI cannot complete successfully
+
+2. **Backend Connection Verification Failure**: Node.js setup issues in backend repository
+   - Error: `package-lock.json` not found in backend repository
+   - Error: Process completed with exit code 127
+   - Impact: Backend connection verification job fails
+
+3. **Health Check Verification Failure**: Go build errors
+   - Error: Missing Go module `github.com/aprianimmanuel/backend-app/utils/storage`
+   - Error: `docker-compose: command not found`
+   - Impact: Health check verification job fails
+
+## Troubleshooting Guide
+
+### Common Integration Test Issues
+
+#### 1. JWT Decode Import Error
+**Symptom**: Frontend build fails with JWT decode import error
+**Solution**:
+```javascript
+// In src/utils/auth.js
+// Change:
+import jwtDecode from 'jwt-decode';
+// To:
+import * as jwtDecode from 'jwt-decode';
+```
+
+#### 2. Missing Dependencies
+**Symptom**: Backend connection verification fails due to missing package-lock.json
+**Solution**:
+- Verify correct repository structure
+- Ensure frontend and backend are in separate repositories or properly configured monorepo
+- Add package-lock.json to frontend directory
+
+#### 3. Go Module Path Issues
+**Symptom**: Go build errors due to incorrect module paths
+**Solution**:
+```go
+// In controllers/material_controller.go line 17
+// Change:
+import "github.com/aprianimmanuel/backend-app/utils/storage"
+// To:
+import "github.com/aprianimmanuel/rangkaiedu-backend/utils/storage"
+```
+
+#### 4. Docker Compose Missing
+**Symptom**: Docker commands fail with "command not found"
+**Solution**:
+```yaml
+# In GitHub Actions workflow
+steps:
+  - name: Setup Docker Compose
+    uses: docker/setup-compose-action@v3
+```
+
 ## Next Steps
 
-1. Implement end-to-end integration tests
-2. Set up continuous integration for integration tests
-3. Create test data management procedures
-4. Document troubleshooting procedures
-5. Establish performance benchmarks
+1. Fix frontend JWT decode import issue
+2. Resolve backend connection verification job configuration
+3. Fix Go module import paths
+4. Add Docker Compose setup to CI environment
+5. Re-run integration tests after fixes
+6. Establish performance benchmarks for successful tests

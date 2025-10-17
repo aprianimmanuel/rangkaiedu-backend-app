@@ -11,10 +11,11 @@ servers:
     description: Development server
 
 paths:
-  /auth/verify-role:
+  /auth/register:
     post:
-      summary: Verify user role
-      description: Verifies if a user can log in with a specific role
+      summary: Register User
+      description: Registers a new user account with optional password support. Upon success, an initial OTP is sent to the user's email for verification.
+      operationId: registerUser
       requestBody:
         required: true
         content:
@@ -22,39 +23,79 @@ paths:
             schema:
               type: object
               properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                email:
+                  type: string
+                  format: email
+                  example: "john.doe@example.com"
+                phone:
+                  type: string
+                  example: "+6281234567890"
                 role:
                   type: string
-                  example: "guru"
+                  enum: [admin, teacher, student, parent]
+                  example: "student"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "SecurePass123!"
               required:
+                - name
+                - email
+                - phone
                 - role
       responses:
-        '200':
-          description: Role verification successful
+        '201':
+          description: Registration successful
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  message:
+                    type: string
+                    example: "User registered successfully. Verification OTP sent to email."
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: ""
+                      name:
+                        type: string
+                        example: "John Doe"
+                      email:
+                        type: string
+                        example: "john.doe@example.com"
+                      role:
+                        type: string
+                        example: "student"
         '400':
           description: Invalid request data
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '401':
-          description: Role verification failed
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to create user or send OTP
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /auth/whatsapp-otp/send:
+  /auth/login:
     post:
-      summary: Send WhatsApp OTP
-      description: Sends an OTP via WhatsApp for authentication
+      summary: Login User
+      description: Authenticates a user with email and optional password. If no password is provided, an OTP is sent to the user's email.
+      operationId: loginUser
       requestBody:
         required: true
         content:
@@ -62,15 +103,88 @@ paths:
             schema:
               type: object
               properties:
-                phone:
+                email:
                   type: string
-                  example: "+6281234567890"
-                role:
+                  format: email
+                  example: "john.doe@example.com"
+                password:
                   type: string
-                  example: "guru"
+                  minLength: 8
+                  example: "SecurePass123!"
               required:
-                - phone
-                - role
+                - email
+      responses:
+        '200':
+          description: Login successful or OTP sent
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Login successful"
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      user:
+                        $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "OTP sent to your email"
+                      otp_required:
+                        type: boolean
+                        example: true
+        '400':
+          description: Invalid request data or social auth user attempting password login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Failed to generate token or send OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/send-otp:
+    post:
+      summary: Send OTP
+      description: Sends a one-time password (OTP) to the specified email or phone for authentication or verification purposes.
+      operationId: sendOTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier:
+                  type: string
+                  example: "john.doe@example.com"
+                type:
+                  type: string
+                  enum: [email, phone]
+                  example: "email"
+              required:
+                - identifier
+                - type
       responses:
         '200':
           description: OTP sent successfully
@@ -79,29 +193,33 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
                   message:
                     type: string
                     example: "OTP sent successfully"
         '400':
-          description: Invalid request data
+          description: Invalid identifier or type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found for the provided identifier
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '500':
-          description: Failed to send OTP
+          description: Failed to generate or send OTP
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /auth/whatsapp-otp/verify:
+  /auth/verify-otp:
     post:
-      summary: Verify WhatsApp OTP
-      description: Verifies the OTP sent via WhatsApp
+      summary: Verify OTP
+      description: Verifies the provided OTP against the stored value for the identifier.
+      operationId: verifyOTP
       requestBody:
         required: true
         content:
@@ -109,126 +227,36 @@ paths:
             schema:
               type: object
               properties:
-                phone:
+                identifier:
                   type: string
-                  example: "+6281234567890"
+                  example: "john.doe@example.com"
                 otp:
                   type: string
+                  minLength: 6
+                  maxLength: 6
                   example: "123456"
-                role:
-                  type: string
-                  example: "guru"
               required:
-                - phone
+                - identifier
                 - otp
-                - role
       responses:
         '200':
-          description: OTP verification successful
+          description: OTP verified successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  token:
+                  message:
                     type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    example: "OTP verified successfully"
         '400':
-          description: Invalid request data
+          description: Invalid request data or invalid OTP
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '401':
-          description: Invalid OTP
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /auth/google:
-    post:
-      summary: Google Authentication
-      description: Authenticates user via Google
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                id_token:
-                  type: string
-                  example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFlOWdkazcifQ..."
-                role:
-                  type: string
-                  example: "guru"
-              required:
-                - id_token
-                - role
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        '400':
-          description: Invalid request data
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Authentication failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /auth/apple:
-    post:
-      summary: Apple Authentication
-      description: Authenticates user via Apple
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                id_token:
-                  type: string
-                  example: "eyJraWQiOiJmaDZCczhDIiwiYWxnIjoiUlMyNTYifQ..."
-                role:
-                  type: string
-                  example: "guru"
-              required:
-                - id_token
-                - role
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        '400':
-          description: Invalid request data
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Authentication failed
+        '500':
+          description: Failed to verify OTP
           content:
             application/json:
               schema:
@@ -247,7 +275,7 @@ components:
           example: "John Doe"
         role:
           type: string
-          example: "guru"
+          example: "student"
         email:
           type: string
           example: "john.doe@example.com"
@@ -268,9 +296,6 @@ components:
         error:
           type: string
           example: "Invalid request"
-        message:
-          type: string
-          example: "The request data is invalid"
 
   securitySchemes:
     bearerAuth:

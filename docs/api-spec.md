@@ -3,145 +3,26 @@
 ## Overview
 This document defines the REST API endpoints and data structures for the Rangkai Edu application. The API follows REST conventions and uses JSON for request/response formats.
 
+## Implementation Status
+**Status:** ✅ Partially Implemented
+**Last Updated:** October 2025
+**Note:** This document reflects the actual implemented API endpoints based on test results. Some endpoints from the original design have been deprecated or modified based on implementation decisions.
+
 ## Authentication Endpoints
 
-### Verify Role
-Verifies if a user can log in with a specific role.
-
-**Endpoint:** `POST /auth/verify-role`
-
-**Request Body:**
-```json
-{
-  "role": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true
-}
-```
-
-**Response Codes:**
-- `200 OK` - Role verification successful
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Role verification failed
-
-### Send WhatsApp OTP
-Sends an OTP via WhatsApp for authentication.
-
-**Endpoint:** `POST /auth/whatsapp-otp/send`
-
-**Request Body:**
-```json
-{
-  "phone": "string",
-  "role": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "string"
-}
-```
-
-**Response Codes:**
-- `200 OK` - OTP sent successfully
-- `400 Bad Request` - Invalid request data
-- `500 Internal Server Error` - Failed to send OTP
-
-### Verify WhatsApp OTP
-Verifies the OTP sent via WhatsApp.
-
-**Endpoint:** `POST /auth/whatsapp-otp/verify`
-
-**Request Body:**
-```json
-{
-  "phone": "string",
-  "otp": "string",
-  "role": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "string"
-}
-```
-
-**Response Codes:**
-- `200 OK` - OTP verification successful
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Invalid OTP
-
-### Google Authentication
-Authenticates user via Google.
-
-**Endpoint:** `POST /auth/google`
-
-**Request Body:**
-```json
-{
-  "id_token": "string",
-  "role": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "string"
-}
-```
-
-**Response Codes:**
-- `200 OK` - Authentication successful
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Authentication failed
-
-### Apple Authentication
-Authenticates user via Apple.
-
-**Endpoint:** `POST /auth/apple`
-
-**Request Body:**
-```json
-{
-  "id_token": "string",
-  "role": "string"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "string"
-}
-```
-
-**Response Codes:**
-- `200 OK` - Authentication successful
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Authentication failed
-
 ### Register User
-Registers a new user account with optional password support for hybrid authentication. Upon success, an initial OTP is sent to the user's email for verification.
+Registers a new user account with optional password support. Upon success, an initial OTP is sent to the user's email for verification.
 
-**Endpoint:** `POST /register`
+**Endpoint:** `POST /api/auth/register`
+**Implementation Status:** ✅ Implemented and Tested
 
 **Request Body:**
 ```json
 {
+  "name": "string",
   "email": "user@example.com",
   "phone": "+628123456789",
-  "role": "siswa",
+  "role": "student",
   "password": "optionalSecurePassword"
 }
 ```
@@ -149,8 +30,13 @@ Registers a new user account with optional password support for hybrid authentic
 **Response (201 Created):**
 ```json
 {
-  "success": true,
-  "message": "User registered successfully. OTP sent to email for verification."
+  "message": "User registered successfully. Verification OTP sent to email.",
+  "user": {
+    "id": "",
+    "name": "string",
+    "email": "user@example.com",
+    "role": "student"
+  }
 }
 ```
 
@@ -158,19 +44,122 @@ Registers a new user account with optional password support for hybrid authentic
 - `201 Created` - Registration successful
 - `400 Bad Request` - Invalid request data (e.g., missing required fields, invalid email/phone)
 - `409 Conflict` - User already exists
+- `500 Internal Server Error` - Failed to create user or send OTP
 
 **Error Example:**
 ```json
 {
-  "error": "User with this email already exists",
-  "code": 409
+  "error": "Email already exists"
+}
+```
+
+### Login User
+Authenticates a user with email and optional password. If no password is provided, an OTP is sent to the user's email.
+
+**Endpoint:** `POST /api/auth/login`
+**Implementation Status:** ✅ Implemented and Tested
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "optionalSecurePassword"
+}
+```
+
+**Response with Password (200 OK):**
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid-string",
+    "name": "User Name",
+    "email": "user@example.com",
+    "phone": "+628123456789",
+    "role": "student"
+  }
+}
+```
+
+**Response without Password (200 OK):**
+```json
+{
+  "message": "OTP sent to your email",
+  "otp_required": true
+}
+```
+
+**Response Codes:**
+- `200 OK` - Login successful or OTP sent
+- `400 Bad Request` - Invalid request data or social auth user attempting password login
+- `401 Unauthorized` - Invalid credentials
+- `404 Not Found` - User not found
+- `500 Internal Server Error` - Failed to generate token or send OTP
+
+**Error Example:**
+```json
+{
+  "error": "Invalid credentials"
+}
+```
+
+### Login with WhatsApp OTP
+Authenticates a user with email and optional WhatsApp OTP. If no password is provided, an OTP is sent to the user's WhatsApp number.
+
+**Endpoint:** `POST /api/auth/whatsapp/login`
+**Implementation Status:** ✅ Implemented and Tested
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "optionalSecurePassword"
+}
+```
+
+**Response with Password (200 OK):**
+```json
+{
+  "message": "Login successful",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid-string",
+    "name": "User Name",
+    "email": "user@example.com",
+    "phone": "+628123456789",
+    "role": "student"
+  }
+}
+```
+
+**Response without Password (200 OK):**
+```json
+{
+  "message": "OTP sent to your WhatsApp number",
+  "otp_required": true
+}
+```
+
+**Response Codes:**
+- `200 OK` - Login successful or OTP sent
+- `400 Bad Request` - Invalid request data or social auth user attempting password login
+- `401 Unauthorized` - Invalid credentials
+- `404 Not Found` - User not found
+- `500 Internal Server Error` - Failed to generate token or send OTP
+
+**Error Example:**
+```json
+{
+  "error": "Invalid credentials"
 }
 ```
 
 ### Send OTP
-Sends a one-time password (OTP) to the specified email or phone for authentication or verification purposes.
+Sends a one-time password (OTP) to the specified email, phone, or WhatsApp for authentication or verification purposes.
 
-**Endpoint:** `POST /send-otp`
+**Endpoint:** `POST /api/auth/send-otp`
+**Implementation Status:** ✅ Implemented and Tested
 
 **Request Body:**
 ```json
@@ -179,34 +168,47 @@ Sends a one-time password (OTP) to the specified email or phone for authenticati
   "type": "email"
 }
 ```
-*Note: `type` can be "email" or "phone". For phone, `identifier` should be in international format (e.g., "+628123456789").*
+*Note: `type` can be "email", "phone", or "whatsapp". For phone/WhatsApp, `identifier` should be in international format (e.g., "+628123456789").*
 
 **Response (200 OK):**
 ```json
 {
-  "success": true,
-  "message": "OTP sent successfully. Expires in 10 minutes."
+  "message": "OTP sent successfully"
 }
 ```
 
 **Response Codes:**
 - `200 OK` - OTP sent
 - `400 Bad Request` - Invalid identifier or type
-- `404 Not Found` - User not found
-- `500 Internal Server Error` - Failed to send OTP
+- `404 Not Found` - User not found for the provided identifier
+- `500 Internal Server Error` - Failed to generate or send OTP
 
 **Error Example:**
 ```json
 {
-  "error": "Invalid email format",
-  "code": 400
+  "error": "User not found for the provided identifier"
+}
+```
+
+**WhatsApp-Specific Error Example:**
+```json
+{
+  "error": "Invalid phone number format. Use international format (e.g., +628123456789)"
+}
+```
+
+**Rate Limit Error Example:**
+```json
+{
+  "error": "Rate limit exceeded. Please try again later."
 }
 ```
 
 ### Verify OTP
-Verifies the provided OTP against the stored value for the identifier. If valid, returns a JWT token. OTP expires after 10 minutes.
+Verifies the provided OTP against the stored value for the identifier.
 
-**Endpoint:** `POST /verify-otp`
+**Endpoint:** `POST /api/auth/verify-otp`
+**Implementation Status:** ✅ Implemented and Tested
 
 **Request Body:**
 ```json
@@ -219,65 +221,21 @@ Verifies the provided OTP against the stored value for the identifier. If valid,
 **Response (200 OK):**
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "email": "user@example.com",
-    "phone": "+628123456789",
-    "role": "siswa"
-  }
+  "message": "OTP verified successfully"
 }
 ```
 
 **Response Codes:**
-- `200 OK` - OTP verified, JWT issued
-- `400 Bad Request` - Invalid request data
-- `401 Unauthorized` - Invalid or expired OTP
-- `404 Not Found` - User not found
+- `200 OK` - OTP verified successfully
+- `400 Bad Request` - Invalid request data or invalid OTP
+- `500 Internal Server Error` - Failed to verify OTP
 
 **Error Example:**
 ```json
 {
-  "error": "Invalid OTP",
-  "code": 401
+  "error": "Invalid OTP"
 }
 ```
-
-
-### Deprecated Endpoints
-The following endpoints are deprecated in favor of the OTP-based flow above. They are maintained for legacy support but should not be used for new implementations:
-
-- `POST /auth/whatsapp-otp/send` - Legacy WhatsApp OTP send
-- `POST /auth/whatsapp-otp/verify` - Legacy WhatsApp OTP verify
-- `POST /login` - Password-based login (hybrid support available via optional password in /register, but recommend OTP)
-- `POST /auth/google` - Google OAuth (consider migrating to OTP)
-- `POST /auth/apple` - Apple OAuth (consider migrating to OTP)
-
-For password-based hybrid login, use the deprecated `/login` endpoint with email and password, which returns the same JWT structure.
-
-**Endpoint:** `POST /login` (Deprecated)
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "securePassword"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "email": "user@example.com",
-    "role": "siswa"
-  }
-}
-```
-
-**Note:** Passwords are hashed with bcrypt. Use OTP flow for enhanced security.
 
 ## Authorization
 
@@ -288,11 +246,9 @@ JWT tokens issued by the authentication endpoints contain the following claims:
 
 ```json
 {
-  "sub": "user-uuid",
+  "user_id": "uuid-string",
   "email": "user@example.com",
-  "phone": "+6281234567890",
   "role": "student",
-  "iat": 1729000000,
   "exp": 1729086400
 }
 ```
@@ -358,8 +314,7 @@ Standard error response format.
 
 ```json
 {
-  "error": "string",
-  "message": "string"
+  "error": "string"
 }
 ```
 
@@ -372,6 +327,11 @@ Authorization: Bearer <token>
 
 ## Rate Limiting
 API requests are subject to rate limiting to prevent abuse. Exceeding the rate limit will result in a `429 Too Many Requests` response.
+
+### WhatsApp Authentication Rate Limiting
+WhatsApp authentication endpoints have specific rate limiting to comply with WhatsApp Business API policies:
+- Maximum 10 OTP requests per hour per phone number
+- Rate limit exceeded responses include a `Retry-After` header indicating when the limit resets
 
 ## Error Handling
 The API uses standard HTTP status codes to indicate the success or failure of requests. All error responses include a JSON object with error details.

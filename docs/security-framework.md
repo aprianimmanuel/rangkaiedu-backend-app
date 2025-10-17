@@ -162,8 +162,8 @@ Before authentication, users must verify their role:
 - **Password Policies**: Enforce strong password requirements (for future password-based auth)
 
 #### Communication Security
-- **HTTPS Enforcement**: All communication over HTTPS
-- **Secure Headers**: Implement security headers
+- **HTTPS Enforcement**: All communication over HTTPS with automatic HTTP to HTTPS redirection
+- **Secure Headers**: Implement security headers including HSTS (HTTP Strict Transport Security)
 - **CORS Configuration**: Restrict cross-origin requests
 
 ## 4. Potential Vulnerabilities
@@ -303,3 +303,4 @@ Before authentication, users must verify their role:
 8. Plan security training for development team
 9. Establish incident response procedures
 10. Schedule regular security assessments
+11. Implement HTTPS enforcement with certificate management
