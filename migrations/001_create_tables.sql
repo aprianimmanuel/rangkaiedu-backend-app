@@ -44,15 +44,16 @@ CREATE TABLE auth_tokens (
 -- Trigger for updated_at on auth_tokens (if needed, but no updated_at)
 -- No updated_at, so no trigger
 
--- Create otp_verifications table
-CREATE TABLE otp_verifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR(20) NOT NULL,
-    otp VARCHAR(10) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student', 'parent')),
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    verified BOOLEAN DEFAULT FALSE
+-- Create otps table for OTP storage
+-- This table stores temporary OTP codes for email/phone verification
+-- with expiry to prevent replay attacks
+CREATE TABLE IF NOT EXISTS otps (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(255) NOT NULL,  -- email or phone number
+    otp VARCHAR(6) NOT NULL,           -- 6-digit OTP code
+    expiry TIMESTAMP NOT NULL,         -- OTP expiry time (e.g., 10 minutes from creation)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(identifier, otp)            -- Prevent duplicate OTPs for same identifier
 );
 
 -- No updated_at, no trigger
@@ -192,9 +193,8 @@ CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX idx_auth_tokens_user_id ON auth_tokens(user_id) WHERE NOT revoked;
 
--- OTP indexes
-CREATE INDEX idx_otp_phone_role ON otp_verifications(phone, role);
-CREATE INDEX idx_otp_expires ON otp_verifications(expires_at) WHERE NOT verified;
+-- Index for faster lookups by identifier and expiry
+CREATE INDEX IF NOT EXISTS idx_otps_identifier_expiry ON otps (identifier, expiry);
 
 -- Schools index
 CREATE INDEX idx_schools_name ON schools(name);
@@ -230,8 +230,7 @@ DROP INDEX IF EXISTS idx_users_phone;
 DROP INDEX IF EXISTS idx_users_role;
 DROP INDEX IF EXISTS idx_auth_tokens_token;
 DROP INDEX IF EXISTS idx_auth_tokens_user_id;
-DROP INDEX IF EXISTS idx_otp_phone_role;
-DROP INDEX IF EXISTS idx_otp_expires;
+DROP INDEX IF EXISTS idx_otps_identifier_expiry;
 DROP INDEX IF EXISTS idx_schools_name;
 DROP INDEX IF EXISTS idx_classes_school_grade;
 DROP INDEX IF EXISTS idx_students_school;
@@ -248,7 +247,7 @@ DROP TABLE IF EXISTS subjects;
 DROP TABLE IF EXISTS classes;
 DROP TABLE IF EXISTS schools;
 DROP TABLE IF EXISTS oauth_providers;
-DROP TABLE IF EXISTS otp_verifications;
+DROP TABLE IF EXISTS otps;
 DROP TABLE IF EXISTS auth_tokens;
 DROP TABLE IF EXISTS users;
 

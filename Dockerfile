@@ -14,7 +14,7 @@ ENV GOPRIVATE=
 ENV GOSUMDB=off
 
 # Install git and other dependencies needed for building
-RUN apk add --no-cache git gcc musl-dev
+RUN apk add --no-cache git gcc musl-dev libpq-dev
 
 # Configure Git to use HTTPS instead of SSH
 RUN git config --global url."https://github.com/".insteadOf "git@github.com:" && \
@@ -29,7 +29,7 @@ COPY go.mod go.sum ./
 # Download dependencies (cached if go.mod and go.sum unchanged)
 # Using GOPROXY to ensure we can download modules even if direct access fails
 ENV GOPROXY=https://proxy.golang.org,direct
-RUN go mod download
+RUN go mod tidy && go mod download
 
 # Copy source code
 COPY . .

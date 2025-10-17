@@ -166,6 +166,10 @@ Configuration parameters:
 - `OSS_ACCESS_KEY_SECRET` - Access key secret for OSS access (required for OSS)
 - `OSS_REGION` - Alibaba Cloud region (required for OSS)
 - `OSS_ENDPOINT` - OSS endpoint URL (required for OSS)
+- `WHATSAPP_PROVIDER_0_TYPE` - WhatsApp provider type (e.g., `whatsapp_business` or `twilio_whatsapp`)
+- `WHATSAPP_PROVIDER_0_NAME` - WhatsApp provider name (e.g., `primary-whatsapp`)
+- `WHATSAPP_PROVIDER_0_ENABLED` - Enable/disable WhatsApp provider (default: true)
+- `WHATSAPP_PROVIDER_0_PRIORITY` - WhatsApp provider priority (default: 0)
 
 ## Running Migrations
 
@@ -407,6 +411,25 @@ The application uses environment variables for configuration. These can be set i
    # OSS_ACCESS_KEY_SECRET=your-access-key-secret
    # OSS_REGION=ap-southeast-1
    # OSS_ENDPOINT=https://oss-ap-southeast-1.aliyuncs.com
+   
+   # WhatsApp Configuration (WhatsApp Business API)
+   # WHATSAPP_PROVIDER_0_TYPE=whatsapp_business
+   # WHATSAPP_PROVIDER_0_NAME=primary-whatsapp
+   # WHATSAPP_PROVIDER_0_ENABLED=true
+   # WHATSAPP_PROVIDER_0_PRIORITY=0
+   # WHATSAPP_PROVIDER_0_SETTINGS_PHONE_ID_NUMBER=your_phone_number_id
+   # WHATSAPP_PROVIDER_0_SETTINGS_BUSINESS_ACCOUNT_ID=your_business_account_id
+   # WHATSAPP_PROVIDER_0_SETTINGS_ACCESS_TOKEN=your_access_token
+   # WHATSAPP_PROVIDER_0_SETTINGS_API_VERSION=v18.0
+   
+   # WhatsApp Configuration (Twilio WhatsApp)
+   # WHATSAPP_PROVIDER_0_TYPE=twilio_whatsapp
+   # WHATSAPP_PROVIDER_0_NAME=primary-whatsapp
+   # WHATSAPP_PROVIDER_0_ENABLED=true
+   # WHATSAPP_PROVIDER_0_PRIORITY=0
+   # WHATSAPP_PROVIDER_0_SETTINGS_ACCOUNT_SID=your_account_sid
+   # WHATSAPP_PROVIDER_0_SETTINGS_AUTH_TOKEN=your_auth_token
+   # WHATSAPP_PROVIDER_0_SETTINGS_WHATSAPP_NUMBER=your_whatsapp_number
    ```
 
 2. **Docker Compose environment variables**:

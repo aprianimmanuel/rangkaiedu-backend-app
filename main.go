@@ -3,42 +3,26 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
-	"github.com/aprianimmanuel/rangkaiedu-backend/utils/db"
-	"github.com/aprianimmanuel/rangkaiedu-backend/routes"
+	"github.com/aprianimmanuel/rangkaiedu-backend/internal/app"
 )
 
 func main() {
-	// Initialize the database connection pool
-	if err := db.Init(); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+	// Create new application instance
+	application, err := app.New()
+	if err != nil {
+		log.Fatalf("Failed to create application: %v", err)
 	}
-	defer db.Close()
 
-	r := gin.Default()
+	// Initialize application components
+	if err := application.Initialize(); err != nil {
+		log.Fatalf("Failed to initialize application: %v", err)
+	}
 
-	// Welcome route
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Welcome to Rangkai Edu Backend API",
-		})
-	})
+	// Setup routes
+	application.SetupRoutes()
 
-	// Setup auth routes
-	routes.SetupAuthRoutes(r)
-
-	// Setup class routes
-	routes.SetupClassRoutes(r)
-
-	// Setup subject routes
-	routes.SetupSubjectRoutes(r)
-
-	// Setup material routes
-	routes.SetupMaterialRoutes(r)
-
-	// Setup health check routes
-	routes.SetupHealthRoutes(r)
-
-	// Run the server
-	r.Run(":8080")
+	// Run the application
+	if err := application.Run(); err != nil {
+		log.Fatalf("Application failed to run: %v", err)
+	}
 }

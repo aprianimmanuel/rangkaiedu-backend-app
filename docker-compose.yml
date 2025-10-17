@@ -16,7 +16,7 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-rangkaiedu_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rangkaiedudev1} -d ${DB_NAME:-rangkaiedu_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,7 +60,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: ./internal/test/infrastructure/Dockerfile.test
     container_name: rangkai-edu-test
     environment:
       DB_HOST: db

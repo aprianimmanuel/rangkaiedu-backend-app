@@ -9,6 +9,9 @@ CREATE TABLE users (
     phone VARCHAR(20) UNIQUE NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student', 'parent')),
     password_hash VARCHAR(255),
+    mfa_secret VARCHAR(255),
+    is_mfa_enabled BOOLEAN DEFAULT FALSE,
+    mfa_backup_codes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP WITH TIME ZONE
@@ -180,16 +183,20 @@ CREATE TRIGGER update_auth_tokens_updated_at
     BEFORE UPDATE ON auth_tokens
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Create otp_verifications table
-CREATE TABLE IF NOT EXISTS otp_verifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    phone VARCHAR(20) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student', 'parent')),
-    otp_code VARCHAR(6) NOT NULL,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    is_used BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- Create otps table for OTP storage
+-- This table stores temporary OTP codes for email/phone verification
+-- with expiry to prevent replay attacks
+CREATE TABLE IF NOT EXISTS otps (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(255) NOT NULL,  -- email or phone number
+    otp VARCHAR(6) NOT NULL,           -- 6-digit OTP code
+    expiry TIMESTAMP NOT NULL,         -- OTP expiry time (e.g., 10 minutes from creation)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(identifier, otp)            -- Prevent duplicate OTPs for same identifier
 );
+
+-- Index for faster lookups by identifier and expiry
+CREATE INDEX IF NOT EXISTS idx_otps_identifier_expiry ON otps (identifier, expiry);
 
 -- Create oauth_providers table
 CREATE TABLE oauth_providers (
@@ -216,8 +223,6 @@ CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_auth_tokens_token ON auth_tokens(token);
 CREATE INDEX idx_auth_tokens_user_id ON auth_tokens(user_id);
-CREATE INDEX idx_otp_phone_role ON otp_verifications(phone, role);
-CREATE INDEX idx_otp_expires ON otp_verifications(expires_at);
 CREATE INDEX idx_schools_name ON schools(name);
 CREATE INDEX idx_classes_school_grade ON classes(school_id, grade_level);
 CREATE INDEX idx_students_school ON students(school_id);
