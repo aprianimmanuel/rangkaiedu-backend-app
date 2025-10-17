@@ -1,0 +1,50 @@
+{
+  "security": {
+    "enabled": true,
+    "environment": "staging",
+    "debug": true,
+    "logging": {
+      "level": "debug",
+      "format": "json",
+      "file_output": {
+        "path": "/var/log/rangkaiedu/staging/security.log",
+        "format": "json",
+        "rotate": true,
+        "compress": true,
+        "permissions": 640
+      },
+      "console_output": {
+        "format": "text",
+        "color": true,
+        "structured": false
+      },
+      "http_output": {
+        "url": "https://staging-logging-service.example.com/api/v1/security-events",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer staging-secret-token",
+          "Content-Type": "application/json"
+        },
+        "timeout": "30s",
+        "retry_count": 3,
+        "retry_delay": "5s"
+      },
+      "buffer_size": 1000,
+      "flush_interval": "5s",
+      "batch_size": 100,
+      "include_events": [
+        "auth_failure",
+        "auth_lockout",
+        "auth_brute_force"
+      ],
+      "sanitize_data": true,
+      "mask_patterns": [
+        "password",
+        "token"
+      ],
+      "async_logging": true,
+      "queue_size": 10000,
+      "worker_count": 3
+    }
+  }
+}

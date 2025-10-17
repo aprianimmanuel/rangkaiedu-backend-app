@@ -1,0 +1,634 @@
+{
+  "security": {
+    "enabled": true,
+    "environment": "production",
+    "debug": false,
+    "logging": {
+      "level": "medium",
+      "format": "json",
+      "file_output": {
+        "path": "/var/log/rangkaiedu/security.log",
+        "format": "json",
+        "rotate": true,
+        "compress": true,
+        "permissions": 640
+      },
+      "console_output": {
+        "format": "text",
+        "color": true,
+        "structured": false
+      },
+      "http_output": {
+        "url": "https://logging-service.example.com/api/v1/security-events",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer secret-token",
+          "Content-Type": "application/json"
+        },
+        "timeout": "30s",
+        "retry_count": 3,
+        "retry_delay": "5s"
+      },
+      "syslog_output": {
+        "network": "tcp",
+        "address": "syslog.example.com:514",
+        "tag": "rangkaiedu-security",
+        "facility": "local0",
+        "severity": "info"
+      },
+      "buffer_size": 1000,
+      "flush_interval": "5s",
+      "batch_size": 100,
+      "include_events": [
+        "auth_failure",
+        "auth_lockout",
+        "auth_brute_force",
+        "auth_breach",
+        "auth_threat",
+        "auth_violation",
+        "auth_compromise"
+      ],
+      "exclude_events": [
+        "auth_success"
+      ],
+      "include_users": [
+        "admin",
+        "root",
+        "superuser"
+      ],
+      "exclude_users": [
+        "test",
+        "demo"
+      ],
+      "include_ips": [
+        "192.168.0.0/16",
+        "10.0.0.0/8"
+      ],
+      "exclude_ips": [
+        "127.0.0.1",
+        "10.0.2.0/24"
+      ],
+      "sanitize_data": true,
+      "mask_patterns": [
+        "password",
+        "token",
+        "secret",
+        "key",
+        "authorization",
+        "cookie"
+      ],
+      "retention_days": 90,
+      "max_file_size": 104857600,
+      "max_backups": 10,
+      "encrypt_logs": true,
+      "encryption_key": "base64-encoded-encryption-key",
+      "sign_logs": true,
+      "private_key_path": "/etc/rangkaiedu/security/private.key",
+      "public_key_path": "/etc/rangkaiedu/security/public.key",
+      "async_logging": true,
+      "queue_size": 10000,
+      "worker_count": 3
+    },
+    "alerting": {
+      "enabled": true,
+      "level": "high",
+      "providers": [
+        {
+          "id": "slack-security",
+          "name": "Security Slack Channel",
+          "type": "slack",
+          "enabled": true,
+          "config": {
+            "webhook_url": "https://hooks.slack.com/services/XXX/YYY/ZZZ",
+            "channel": "#security-alerts",
+            "username": "SecurityBot"
+          },
+          "retry_policy": {
+            "max_retries": 3,
+            "initial_delay": "1s",
+            "max_delay": "30s",
+            "backoff_factor": 2.0
+          }
+        },
+        {
+          "id": "email-security",
+          "name": "Security Team Email",
+          "type": "email",
+          "enabled": true,
+          "config": {
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587,
+            "username": "security@example.com",
+            "password": "email-password",
+            "from": "security@example.com",
+            "to": [
+              "security-team@example.com"
+            ],
+            "subject": "Security Alert - RangkaiEdu"
+          }
+        },
+        {
+          "id": "pagerduty-security",
+          "name": "PagerDuty Security",
+          "type": "pagerduty",
+          "enabled": true,
+          "config": {
+            "integration_key": "pagerduty-integration-key",
+            "api_key": "pagerduty-api-key"
+          }
+        }
+      ],
+      "rules": [
+        {
+          "id": "brute-force-detection",
+          "name": "Brute Force Attack Detection",
+          "description": "Detect multiple failed authentication attempts",
+          "enabled": true,
+          "event_type": "auth_brute_force",
+          "category": "threat_detection",
+          "severity": "critical",
+          "query": "failed_auth_attempts > 10",
+          "threshold": 10.0,
+          "operator": "gt",
+          "duration": "5m",
+          "for": "1m",
+          "labels": {
+            "team": "security",
+            "priority": "high"
+          },
+          "annotations": {
+            "summary": "Brute force attack detected",
+            "description": "Multiple failed authentication attempts detected from a single IP"
+          },
+          "providers": [
+            "slack-security",
+            "email-security",
+            "pagerduty-security"
+          ]
+        },
+        {
+          "id": "account-lockout",
+          "name": "Account Lockout Alert",
+          "description": "Alert when accounts are locked due to failed attempts",
+          "enabled": true,
+          "event_type": "auth_lockout",
+          "category": "authentication",
+          "severity": "high",
+          "query": "account_lockouts > 5",
+          "threshold": 5.0,
+          "operator": "gt",
+          "duration": "10m",
+          "for": "1m",
+          "labels": {
+            "team": "security",
+            "priority": "medium"
+          },
+          "annotations": {
+            "summary": "Multiple account lockouts detected",
+            "description": "Several accounts have been locked due to failed authentication attempts"
+          },
+          "providers": [
+            "slack-security",
+            "email-security"
+          ]
+        },
+        {
+          "id": "authorization-violation",
+          "name": "Authorization Violation",
+          "description": "Alert when authorization violations occur",
+          "enabled": true,
+          "event_type": "auth_violation",
+          "category": "authorization",
+          "severity": "critical",
+          "query": "auth_violations > 0",
+          "threshold": 0.0,
+          "operator": "gt",
+          "duration": "1m",
+          "for": "0s",
+          "labels": {
+            "team": "security",
+            "priority": "high"
+          },
+          "annotations": {
+            "summary": "Authorization violation detected",
+            "description": "Unauthorized access attempt to restricted resource"
+          },
+          "providers": [
+            "slack-security",
+            "email-security",
+            "pagerduty-security"
+          ]
+        }
+      ],
+      "throttle_enabled": true,
+      "throttle_window": "1h",
+      "throttle_max": 10,
+      "escalation_enabled": true,
+      "escalation_rules": [
+        {
+          "id": "critical-escalation",
+          "name": "Critical Security Event Escalation",
+          "description": "Escalate critical security events after 15 minutes",
+          "enabled": true,
+          "conditions": [
+            {
+              "field": "severity",
+              "operator": "eq",
+              "value": "critical"
+            },
+            {
+              "field": "duration",
+              "operator": "gt",
+              "value": "15m"
+            }
+          ],
+          "actions": [
+            {
+              "type": "notify",
+              "config": {
+                "recipients": [
+                  "cto@example.com",
+                  "ciso@example.com"
+                ],
+                "message": "Critical security event requires immediate attention"
+              }
+            },
+            {
+              "type": "create_ticket",
+              "config": {
+                "system": "jira",
+                "project": "SEC",
+                "priority": "Critical"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "authentication": {
+      "enabled": true,
+      "provider": "internal",
+      "max_attempts": 5,
+      "lockout_duration": "30m",
+      "lockout_threshold": 3,
+      "password_policy": {
+        "min_length": 12,
+        "max_length": 128,
+        "require_uppercase": true,
+        "require_lowercase": true,
+        "require_numbers": true,
+        "require_special": true,
+        "prevent_reuse": 5,
+        "expiration_days": 90
+      },
+      "mfa_enabled": true,
+      "mfa_providers": [
+        "totp",
+        "sms",
+        "email"
+      ],
+      "session_timeout": "24h",
+      "session_renewal": "1h"
+    },
+    "authorization": {
+      "enabled": true,
+      "model": "rbac",
+      "roles": [
+        {
+          "id": "admin",
+          "name": "Administrator",
+          "description": "System administrator with full access",
+          "permissions": [
+            {
+              "resource": "*",
+              "action": "*",
+              "effect": "allow"
+            }
+          ]
+        },
+        {
+          "id": "user",
+          "name": "Regular User",
+          "description": "Regular user with limited access",
+          "permissions": [
+            {
+              "resource": "profile",
+              "action": "read",
+              "effect": "allow"
+            },
+            {
+              "resource": "profile",
+              "action": "update",
+              "effect": "allow"
+            }
+          ]
+        }
+      ]
+    },
+    "session": {
+      "enabled": true,
+      "timeout": "24h",
+      "renewal": "1h",
+      "idle_timeout": "30m",
+      "storage_type": "redis",
+      "storage_config": {
+        "host": "redis.example.com",
+        "port": 6379,
+        "password": "redis-password",
+        "db": 0
+      },
+      "ip_binding": true,
+      "user_agent_binding": true,
+      "device_binding": false,
+      "cleanup_interval": "10m",
+      "max_sessions": 5
+    },
+    "rate_limiting": {
+      "enabled": true,
+      "global_limit": 1000,
+      "global_window": "1m",
+      "ip_enabled": true,
+      "ip_limit": 100,
+      "ip_window": "1m",
+      "user_enabled": true,
+      "user_limit": 1000,
+      "user_window": "1m",
+      "endpoint_enabled": true,
+      "endpoint_limits": {
+        "/api/v1/auth/login": {
+          "limit": 5,
+          "window": "5m",
+          "method": "POST"
+        },
+        "/api/v1/auth/register": {
+          "limit": 10,
+          "window": "10m",
+          "method": "POST"
+        }
+      },
+      "storage_type": "redis",
+      "storage_config": {
+        "host": "redis.example.com",
+        "port": 6379,
+        "password": "redis-password",
+        "db": 1
+      }
+    },
+    "ip_filtering": {
+      "enabled": true,
+      "allow_list": [
+        "192.168.0.0/16",
+        "10.0.0.0/8"
+      ],
+      "deny_list": [
+        "192.168.100.0/24"
+      ],
+      "geo_enabled": true,
+      "allow_countries": [
+        "ID",
+        "SG",
+        "MY"
+      ],
+      "deny_countries": [
+        "CN",
+        "RU"
+      ],
+      "reputation_enabled": true,
+      "reputation_sources": [
+        "ipqualityscore",
+        "abuseipdb"
+      ],
+      "storage_type": "redis",
+      "storage_config": {
+        "host": "redis.example.com",
+        "port": 6379,
+        "password": "redis-password",
+        "db": 2
+      }
+    },
+    "threat_detection": {
+      "enabled": true,
+      "brute_force": {
+        "enabled": true,
+        "threshold": 5,
+        "time_window": "5m",
+        "action": "alert"
+      },
+      "sql_injection": {
+        "enabled": true,
+        "threshold": 1,
+        "time_window": "1m",
+        "action": "block"
+      },
+      "xss": {
+        "enabled": true,
+        "threshold": 1,
+        "time_window": "1m",
+        "action": "block"
+      },
+      "csrf": {
+        "enabled": true,
+        "threshold": 1,
+        "time_window": "1m",
+        "action": "block"
+      },
+      "directory_traversal": {
+        "enabled": true,
+        "threshold": 1,
+        "time_window": "1m",
+        "action": "block"
+      },
+      "anomaly_enabled": true,
+      "anomaly_threshold": 0.8,
+      "ml_enabled": true,
+      "ml_model": "threat-detection-v1",
+      "threat_intel_enabled": true,
+      "threat_intel_sources": [
+        "virustotal",
+        "alienvault"
+      ]
+    },
+    "compliance": {
+      "enabled": true,
+      "frameworks": [
+        {
+          "name": "GDPR",
+          "version": "2018",
+          "controls": [
+            {
+              "id": "gdpr-30",
+              "name": "Records of Processing Activities",
+              "description": "Maintain records of processing activities",
+              "requirement": "Article 30",
+              "implementation": "Security logging captures all data access events",
+              "testing": "Regular audit of logs for completeness",
+              "evidence": [
+                "security-logs-2023-q1.pdf",
+                "audit-report-2023-q1.pdf"
+              ]
+            }
+          ]
+        }
+      ],
+      "auto_remediation": true,
+      "reporting_enabled": true,
+      "report_interval": "24h",
+      "storage_type": "database",
+      "storage_config": {
+        "host": "db.example.com",
+        "port": 5432,
+        "username": "compliance",
+        "password": "compliance-password",
+        "database": "compliance_db"
+      }
+    },
+    "encryption": {
+      "enabled": true,
+      "algorithm": "AES-256-GCM",
+      "key_size": 256,
+      "key_rotation": "30d",
+      "key_backup": true,
+      "key_storage": "vault",
+      "data_encryption": true,
+      "encryption_fields": [
+        "user.password",
+        "user.email",
+        "user.phone"
+      ],
+      "tls_config": {
+        "enabled": true,
+        "min_version": "TLS1.2",
+        "cipher_suites": [
+          "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+          "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        ],
+        "curve_preferences": [
+          "CurveP521",
+          "CurveP384"
+        ]
+      }
+    },
+    "audit": {
+      "enabled": true,
+      "log_level": "info",
+      "log_format": "json",
+      "storage_type": "elasticsearch",
+      "storage_config": {
+        "hosts": [
+          "https://es1.example.com:9200",
+          "https://es2.example.com:9200"
+        ],
+        "username": "audit-user",
+        "password": "audit-password",
+        "index": "rangkaiedu-audit-logs"
+      },
+      "retention_days": 365,
+      "trail_enabled": true,
+      "trail_config": {
+        "enabled": true,
+        "format": "json",
+        "output": "elasticsearch",
+        "config": {
+          "host": "https://es.example.com:9200",
+          "index": "rangkaiedu-audit-trail"
+        }
+      }
+    },
+    "performance": {
+      "enabled": true,
+      "max_latency": "100ms",
+      "max_throughput": 1000,
+      "monitoring": {
+        "enabled": true,
+        "interval": "30s",
+        "metrics": [
+          "event_processing_rate",
+          "queue_depth",
+          "error_rate"
+        ],
+        "alert_enabled": true,
+        "alert_thresholds": {
+          "queue_depth": 1000.0,
+          "error_rate": 0.05
+        }
+      },
+      "optimization": {
+        "enabled": true,
+        "caching": true,
+        "compression": true,
+        "connection_pool": true,
+        "max_connections": 100,
+        "timeout": "30s",
+        "buffer_size": 8192
+      }
+    },
+    "retention": {
+      "enabled": true,
+      "log_retention": "90d",
+      "alert_retention": "180d",
+      "event_retention": "365d",
+      "storage_type": "s3",
+      "storage_config": {
+        "bucket": "rangkaiedu-logs",
+        "region": "ap-southeast-1",
+        "access_key": "aws-access-key",
+        "secret_key": "aws-secret-key"
+      },
+      "policies": [
+        {
+          "id": "archive-old-logs",
+          "name": "Archive Old Security Logs",
+          "description": "Archive logs older than 30 days to S3",
+          "data_types": [
+            "security_logs"
+          ],
+          "retention_period": "30d",
+          "action": "archive"
+        },
+        {
+          "id": "delete-old-events",
+          "name": "Delete Old Security Events",
+          "description": "Delete security events older than 1 year",
+          "data_types": [
+            "security_events"
+          ],
+          "retention_period": "365d",
+          "action": "delete"
+        }
+      ]
+    },
+    "monitoring": {
+      "enabled": true,
+      "interval": "60s",
+      "thresholds": {
+        "failed_logins": 100.0,
+        "security_events": 1000.0
+      },
+      "targets": [
+        {
+          "id": "security-dashboard",
+          "name": "Security Dashboard",
+          "type": "grafana",
+          "config": {
+            "url": "https://grafana.example.com",
+            "dashboard_id": "security-123"
+          }
+        }
+      ],
+      "alerts": [
+        {
+          "id": "high-security-events",
+          "name": "High Volume Security Events",
+          "condition": "security_events > threshold",
+          "threshold": 1000.0,
+          "action": "notify",
+          "config": {
+            "recipients": [
+              "security-team@example.com"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
