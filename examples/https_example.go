@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aprianimmanuel/rangkaiedu-backend/config"
 	"github.com/aprianimmanuel/rangkaiedu-backend/internal/config"
 	"github.com/gin-gonic/gin"
 )

@@ -22,7 +22,7 @@ func setupTestRouterWithWhatsAppVerification() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	
 	// Initialize test database configuration
-	cfg := config.LoadTest()
+	_ = config.LoadTest()
 	
 	// Initialize database connection pool for testing
 	if err := testutils.InitTestDB(); err != nil {

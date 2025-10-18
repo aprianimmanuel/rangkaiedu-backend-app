@@ -23,7 +23,7 @@ func setupTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	
 	// Initialize test database configuration
-	cfg := config.LoadTest()
+	_ = config.LoadTest()
 	
 	// Log database configuration for debugging
 	fmt.Printf("Test DB Config: Host=%s, Port=%s, Name=%s, User=%s, SSLMode=%s\n",

@@ -17,7 +17,7 @@ func TestAuthRequired_ValidToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Create a valid token
-	cfg := config.Load()
+	_ = config.Load()
 	claims := jwt.MapClaims{
 		"sub":   "test-user-id",
 		"email": "test@example.com",
@@ -179,7 +179,7 @@ func TestAuthRequired_ExpiredToken(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Create an expired token
-	cfg := config.Load()
+	_ = config.Load()
 	claims := jwt.MapClaims{
 		"sub":   "test-user-id",
 		"email": "test@example.com",
