@@ -469,8 +469,7 @@ jobs:
   backend-ci:
     name: Backend CI
     runs-on: ubuntu-latest
-    needs: health-check-verification
-    if: needs.health-check-verification.outputs.health-status == 'healthy'
+    needs: identify-branch-type
     steps:
       # Checkout code
       - name: Checkout code
